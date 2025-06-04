@@ -23,7 +23,14 @@ def _parse_coordinates(df: pd.DataFrame) -> pd.DataFrame:
         
         # Extract x and y values from the string tuples
         # Handle format like "(0.491, 0.638)" by removing parentheses and splitting by comma
-        left_coords = df['left_gaze_point_on_display_area'].str.replace('(', '').str.replace(')', '')
+        # Pandas str.replace treats patterns as regular expressions by default,
+        # which causes an error when using unescaped parentheses. Explicitly
+        # disable regex mode so that literal characters are replaced.
+        left_coords = (
+            df['left_gaze_point_on_display_area']
+            .str.replace('(', '', regex=False)
+            .str.replace(')', '', regex=False)
+        )
         left_x = left_coords.str.split(',', expand=True)[0].str.strip().replace('nan', np.nan).astype(float)
         left_y = left_coords.str.split(',', expand=True)[1].str.strip().replace('nan', np.nan).astype(float)
         
@@ -37,7 +44,11 @@ def _parse_coordinates(df: pd.DataFrame) -> pd.DataFrame:
             
         df['right_gaze_point_on_display_area'] = df['right_gaze_point_on_display_area'].astype(str)
         
-        right_coords = df['right_gaze_point_on_display_area'].str.replace('(', '').str.replace(')', '')
+        right_coords = (
+            df['right_gaze_point_on_display_area']
+            .str.replace('(', '', regex=False)
+            .str.replace(')', '', regex=False)
+        )
         right_x = right_coords.str.split(',', expand=True)[0].str.strip().replace('nan', np.nan).astype(float)
         right_y = right_coords.str.split(',', expand=True)[1].str.strip().replace('nan', np.nan).astype(float)
         
