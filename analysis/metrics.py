@@ -1,0 +1,1 @@
+# Remove all AOI-based metrics and references. Leave file empty if all metrics are AOI-based. 
