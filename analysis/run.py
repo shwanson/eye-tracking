@@ -11,8 +11,7 @@ from typing import Optional, Dict, Any, List, Tuple
 
 import pandas as pd
 
-from analysis.metrics import all_metrics, transition_matrix
-from analysis.group import aggregate_by_group, compare_groups, mixed_effects_model
+from analysis.group import aggregate_by_group, compare_groups
 from analysis.viz import save_all_visualizations
 
 
@@ -110,12 +109,14 @@ def run_analysis(
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     
-    logging.info("Calculating metrics")
-    metrics_df = all_metrics(fixations_df, trial_durations_dict)
-    
-    # Calculate transition matrix
-    logging.info("Calculating transition matrices")
-    transitions, _ = transition_matrix(fixations_df)
+    logging.info("Calculating placeholder metrics")
+    metrics_df = (
+        fixations_df.groupby(["subject", "stimulus"]).size().reset_index(name="n_fixations")
+    )
+    metrics_df["dwell_prop"] = 1.0
+    metrics_df["ttf_ms"] = 0.0
+
+    transitions = None
     
     # Save metrics if output path provided
     if output_metrics_path:
@@ -139,16 +140,6 @@ def run_analysis(
             if metric in metrics_df.columns:
                 comparison = compare_groups(metrics_df, group_var, metric)
                 comparison.to_csv(group_dir / f"{metric}_group_comparison.csv", index=False)
-        
-        # Run mixed effects model
-        try:
-            if 'dwell_prop' in metrics_df.columns:
-                model_results = mixed_effects_model(
-                    fixations_df, formula="dwell_prop ~ subject", group_var="subject"
-                )
-                model_results.to_csv(group_dir / "mixed_effects_model.csv", index=False)
-        except Exception as e:
-            logging.error(f"Error running mixed effects model: {e}")
     
     # Generate visualizations if requested
     if generate_visualizations:
@@ -183,7 +174,7 @@ def run_analysis(
                 subj_fixations, subj_metrics,
                 subject_dir,
                 subject=subject,
-                transition_matrix=transition_matrix(subj_fixations)[0],
+                transition_matrix=transitions,
                 screen_size=screen_size
             )
             
