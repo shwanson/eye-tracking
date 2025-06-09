@@ -2,11 +2,8 @@
 Group-level analyses and statistics for eye tracking data.
 """
 import pandas as pd
-import numpy as np
-from typing import Dict, List, Union, Optional, Tuple
-import statsmodels.formula.api as smf
+from typing import List, Optional
 from scipy import stats
-import pingouin as pg
 
 # Remove all AOI-based group analysis and references. Leave file empty if all group analysis is AOI-based. 
 

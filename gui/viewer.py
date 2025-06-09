@@ -340,8 +340,6 @@ class MainWindow(QMainWindow):
                     dfs.append(df)
                 self.raw_data = pd.concat(dfs, ignore_index=True)
             
-            print('DEBUG: Raw data columns:', self.raw_data.columns.tolist())
-            print('DEBUG: First few rows of raw data:', self.raw_data.head())
             
             # Preprocess data
             self.processed_data, self.fixations = preprocess_pipeline(self.raw_data)
@@ -437,10 +435,6 @@ class MainWindow(QMainWindow):
         filtered_raw = self.processed_data.copy()
         filtered_fix = self.fixations.copy()
 
-        print('DEBUG: Unique subjects in fixations:', filtered_fix['subject'].unique())
-        print('DEBUG: Unique stimuli in fixations:', filtered_fix['stimulus'].unique())
-        print('DEBUG: Current subject filter:', self.current_subject)
-        print('DEBUG: Current stimulus filter:', self.current_stimulus)
 
         if self.current_subject:
             filtered_raw = filtered_raw[filtered_raw['subject'].astype(str) == str(self.current_subject)]
@@ -449,8 +443,6 @@ class MainWindow(QMainWindow):
             filtered_raw = filtered_raw[filtered_raw['stimulus'].astype(str) == str(self.current_stimulus)]
             filtered_fix = filtered_fix[filtered_fix['stimulus'].astype(str) == str(self.current_stimulus)]
 
-        print('DEBUG: Filtered fixations shape:', filtered_fix.shape)
-        print('DEBUG: Filtered fixations head:', filtered_fix.head())
 
         # GUI warning if all x_px/y_px are NaN
         if not filtered_fix.empty and filtered_fix[['x_px', 'y_px']].dropna().empty:
@@ -482,9 +474,6 @@ class MainWindow(QMainWindow):
             self.heatmap_tab.set_figure(fig)
             
             # Update scanpath plot
-            print('DEBUG: Fixations DataFrame shape:', fixations.shape)
-            print('DEBUG: Fixations columns:', fixations.columns.tolist())
-            print('DEBUG: First few rows of fixations:', fixations.head())
             if fixations.empty or fixations[['x_px', 'y_px']].dropna().empty:
                 self.statusBar.showMessage('No fixations to display for current selection.')
                 QMessageBox.warning(self, 'No Scanpath', 'No fixations to display for current selection.')
@@ -591,16 +580,12 @@ class MainWindow(QMainWindow):
             if self.current_stimulus:
                 filtered_metrics = filtered_metrics[filtered_metrics['stimulus'] == self.current_stimulus]
             
-            # Calculate transition matrix
-            transitions, _ = transition_matrix(fixations)
-            
             # Save visualizations
             viz_dir = output_path / "visualizations"
             save_all_visualizations(
                 fixations, filtered_metrics, viz_dir,
                 subject=self.current_subject,
-                stimulus=self.current_stimulus,
-                transition_matrix=transitions
+                stimulus=self.current_stimulus
             )
             
             self.statusBar.showMessage(f"Results exported to {output_dir}")
