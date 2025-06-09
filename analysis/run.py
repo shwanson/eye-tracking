@@ -11,9 +11,8 @@ from typing import Optional, Dict, Any, List, Tuple
 
 import pandas as pd
 
-from analysis.metrics import all_metrics, transition_matrix
-from analysis.group import aggregate_by_group, compare_groups, mixed_effects_model
 from analysis.viz import save_all_visualizations
+
 
 
 def setup_logging(verbosity: int = 0) -> None:
@@ -110,45 +109,15 @@ def run_analysis(
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     
-    logging.info("Calculating metrics")
-    metrics_df = all_metrics(fixations_df, trial_durations_dict)
-    
-    # Calculate transition matrix
-    logging.info("Calculating transition matrices")
-    transitions, _ = transition_matrix(fixations_df)
+    logging.info("Skipping metric calculations (none available)")
+    metrics_df = fixations_df.copy()
+    transitions = None
     
     # Save metrics if output path provided
     if output_metrics_path:
         logging.info(f"Saving metrics to {output_metrics_path}")
         metrics_df.to_csv(output_metrics_path, index=False)
     
-    # Group analysis if group variable provided
-    if group_var and group_var in fixations_df.columns:
-        logging.info(f"Performing group analysis by {group_var}")
-        
-        # Create group output directory
-        group_dir = output_path / "group_analysis"
-        group_dir.mkdir(exist_ok=True)
-        
-        # Aggregate metrics by group
-        agg_metrics = aggregate_by_group(metrics_df, group_var)
-        agg_metrics.to_csv(group_dir / "aggregated_metrics.csv", index=False)
-        
-        # Compare groups
-        for metric in ['dwell_prop', 'ttf_ms', 'n_fixations']:
-            if metric in metrics_df.columns:
-                comparison = compare_groups(metrics_df, group_var, metric)
-                comparison.to_csv(group_dir / f"{metric}_group_comparison.csv", index=False)
-        
-        # Run mixed effects model
-        try:
-            if 'dwell_prop' in metrics_df.columns:
-                model_results = mixed_effects_model(
-                    fixations_df, formula="dwell_prop ~ subject", group_var="subject"
-                )
-                model_results.to_csv(group_dir / "mixed_effects_model.csv", index=False)
-        except Exception as e:
-            logging.error(f"Error running mixed effects model: {e}")
     
     # Generate visualizations if requested
     if generate_visualizations:
@@ -164,9 +133,8 @@ def run_analysis(
         
         # Group visualizations - all subjects, all stimuli
         save_all_visualizations(
-            fixations_df, metrics_df, 
-            viz_dir, 
-            transition_matrix=transitions,
+            fixations_df, metrics_df,
+            viz_dir,
             screen_size=screen_size
         )
         
@@ -183,7 +151,6 @@ def run_analysis(
                 subj_fixations, subj_metrics,
                 subject_dir,
                 subject=subject,
-                transition_matrix=transition_matrix(subj_fixations)[0],
                 screen_size=screen_size
             )
             

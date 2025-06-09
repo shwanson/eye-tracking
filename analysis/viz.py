@@ -4,12 +4,9 @@ Visualization functions for eye tracking data.
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 from matplotlib.figure import Figure
-from matplotlib.axes import Axes
 from scipy.ndimage import gaussian_filter
-from typing import Dict, List, Union, Optional, Tuple, Any
-import seaborn as sns
+from typing import List, Optional, Tuple
 from pathlib import Path
 
 
@@ -352,28 +349,6 @@ def save_all_visualizations(fixations: pd.DataFrame, metrics: pd.DataFrame,
         fig.savefig(output_path / f"{prefix}heatmap.png", dpi=300, bbox_inches='tight')
         plt.close(fig)
     
-    # 3. AOI Metrics - Dwell Time
-    if not filtered_metrics.empty and 'dwell_prop' in filtered_metrics.columns:
-        fig = plot_aoi_metrics(
-            filtered_metrics,
-            'dwell_prop',
-            by_subject=subject is None  # Only by subject if not already filtered
-        )
-        fig.savefig(output_path / f"{prefix}dwell_time.png", dpi=300, bbox_inches='tight')
-        plt.close(fig)
-    
-    # 4. AOI Metrics - Time to First Fixation
-    if not filtered_metrics.empty and 'ttf_ms' in filtered_metrics.columns:
-        fig = plot_aoi_metrics(
-            filtered_metrics,
-            'ttf_ms',
-            by_subject=subject is None  # Only by subject if not already filtered
-        )
-        fig.savefig(output_path / f"{prefix}ttf.png", dpi=300, bbox_inches='tight')
-        plt.close(fig)
-    
-    # 5. Transition Matrix
-    if transition_matrix is not None:
-        fig = plot_transition_matrix(transition_matrix)
-        fig.savefig(output_path / f"{prefix}transitions.png", dpi=300, bbox_inches='tight')
-        plt.close(fig) 
+    # Additional visualizations (AOI metrics, transitions) are not available
+
+    return None
