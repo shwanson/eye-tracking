@@ -372,7 +372,16 @@ class MainWindow(QMainWindow):
         try:
             self.metrics = all_metrics(self.fixations)
         except Exception as e:
-            print(f"Error calculating metrics: {e}")
+            missing_cols = [
+                c
+                for c in ["subject", "stimulus", "start_s", "duration_s", "end_s"]
+                if c not in self.fixations.columns
+            ]
+            message = f"Error calculating metrics: {e}"
+            if missing_cols:
+                message += "\nMissing columns: " + ", ".join(missing_cols)
+            message += "\nAvailable columns: " + ", ".join(self.fixations.columns)
+            QMessageBox.critical(self, "Error", message)
             self.metrics = pd.DataFrame()
     
     def update_filters(self):
