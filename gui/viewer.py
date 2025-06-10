@@ -290,7 +290,10 @@ class MainWindow(QMainWindow):
         metrics_layout.addRow("", self.by_subject_check)
         
         controls_layout.addWidget(metrics_box)
-        
+
+        # Add controls layout to main layout so widgets persist
+        layout.addLayout(controls_layout)
+
         # Plot area
         self.metrics_plot = PlotTab("Metrics")
         layout.addWidget(self.metrics_plot)
