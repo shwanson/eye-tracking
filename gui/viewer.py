@@ -408,12 +408,7 @@ class MainWindow(QMainWindow):
         
         self.group_var_combo.addItem("None")
         self.group_var_combo.addItem("subject")
-        
-        if self.raw_data is not None:
-            # Add other potential group variables
-            for col in self.raw_data.columns:
-                if col not in ['subject', 'stimulus', 'x', 'y', 'x_px', 'y_px', 'time_s']:
-                    self.group_var_combo.addItem(col)
+        self.group_var_combo.addItem("stimulus")
         
         self.group_var_combo.blockSignals(False)
     
