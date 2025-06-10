@@ -11,6 +11,7 @@ from scipy.ndimage import gaussian_filter
 from typing import Dict, List, Union, Optional, Tuple, Any
 import seaborn as sns
 from pathlib import Path
+import math
 
 
 def plot_gaze_timeseries(df: pd.DataFrame, fig: Optional[Figure] = None) -> Figure:
@@ -142,12 +143,15 @@ def plot_group_heatmap(dfs: List[pd.DataFrame], labels: List[str],
     Figure
         Matplotlib figure with the heatmaps
     """
-    if fig is None:
-        fig = plt.figure(figsize=(15, 10))
-    
     n_groups = len(dfs)
     if n_groups != len(labels):
         raise ValueError("Number of DataFrames must match number of labels")
+
+    n_cols = min(4, max(2, math.ceil(math.sqrt(n_groups))))
+    n_rows = math.ceil(n_groups / n_cols)
+
+    if fig is None:
+        fig = plt.figure(figsize=(5 * n_cols, 4 * n_rows))
     
     screen_w, screen_h = screen_size
     
@@ -176,9 +180,7 @@ def plot_group_heatmap(dfs: List[pd.DataFrame], labels: List[str],
         else:
             heatmaps.append(np.zeros((bins, bins)))
     
-    # Determine subplot layout
-    n_rows = int(np.ceil(n_groups / 2))
-    n_cols = min(2, n_groups)
+    # n_rows and n_cols already computed above
     
     # Plot each heatmap
     for i, (heat, label) in enumerate(zip(heatmaps, labels)):
