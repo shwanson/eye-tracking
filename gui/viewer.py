@@ -285,8 +285,12 @@ class MainWindow(QMainWindow):
         for metric in ["dwell_prop", "ttf_ms", "n_fixations", "transitions"]:
             self.metric_type_combo.addItem(metric)
         metrics_layout.addRow("Metric:", self.metric_type_combo)
-        
+
+        # Automatically refresh the metrics plot when options change
+        self.metric_type_combo.currentIndexChanged.connect(self.update_metrics_plot)
+
         self.by_subject_check = QCheckBox("Group by Subject")
+        self.by_subject_check.stateChanged.connect(self.update_metrics_plot)
         metrics_layout.addRow("", self.by_subject_check)
         
         controls_layout.addWidget(metrics_box)
