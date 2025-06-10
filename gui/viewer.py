@@ -163,10 +163,7 @@ class MainWindow(QMainWindow):
         filter_layout.addWidget(self.stimulus_combo)
         filter_layout.addStretch(1)
         
-        # Add refresh button
-        self.refresh_btn = QPushButton("Refresh Plots")
-        self.refresh_btn.clicked.connect(self.update_plots)
-        filter_layout.addWidget(self.refresh_btn)
+
         
         self.main_layout.addLayout(filter_layout)
     
