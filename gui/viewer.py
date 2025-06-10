@@ -546,10 +546,10 @@ class MainWindow(QMainWindow):
         # Aggregate by group
         from analysis.group import aggregate_by_group, compare_groups
         agg = aggregate_by_group(df, group_var, [metric])
-        comp = compare_groups(df, group_var, metric)
+        comp = compare_groups(df, group_var, metric, ci=True)
 
-        # Update results table
-        self.results_model.update_data(agg)
+        # Update results table with statistical comparison
+        self.results_model.update_data(comp)
 
         # Plot group heatmap (if possible)
         from analysis.viz import plot_group_heatmap
@@ -562,7 +562,16 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Plot Error", f"Could not plot group heatmap: {str(e)}")
 
         # Show statistical results in a popup
-        msg = f"Test: {comp['test'].iloc[0]}\nStatistic: {comp['statistic'].iloc[0]:.3f}\nP-value: {comp['p_value'].iloc[0]:.4g}\nGroups: {comp['groups'].iloc[0]}"
+        es = comp['effect_size'].iloc[0]
+        msg = (
+            f"Test: {comp['test'].iloc[0]}\n"
+            f"Statistic: {comp['statistic'].iloc[0]:.3f}\n"
+            f"P-value: {comp['p_value'].iloc[0]:.4g}\n"
+            f"Effect size: {es:.3f}\n"
+        )
+        if not np.isnan(comp['ci_lower'].iloc[0]) and not np.isnan(comp['ci_upper'].iloc[0]):
+            msg += f"95% CI: [{comp['ci_lower'].iloc[0]:.3f}, {comp['ci_upper'].iloc[0]:.3f}]\n"
+        msg += f"Groups: {comp['groups'].iloc[0]}"
         QMessageBox.information(self, "Group Comparison Result", msg)
     
     def export_results(self, output_dir: str):
