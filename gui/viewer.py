@@ -233,7 +233,12 @@ class MainWindow(QMainWindow):
         self.sigma_spin.setRange(1, 30)
         self.sigma_spin.setValue(10)
         viz_layout.addRow("Sigma:", self.sigma_spin)
-        
+
+        # Button to refresh group plot without recomputing statistics
+        self.refresh_group_plot_btn = QPushButton("Refresh Plot")
+        self.refresh_group_plot_btn.clicked.connect(self.refresh_group_plot)
+        viz_layout.addRow("", self.refresh_group_plot_btn)
+
         controls_layout.addWidget(viz_box)
         layout.addLayout(controls_layout)
         
@@ -564,6 +569,42 @@ class MainWindow(QMainWindow):
         # Show statistical results in a popup
         msg = f"Test: {comp['test'].iloc[0]}\nStatistic: {comp['statistic'].iloc[0]:.3f}\nP-value: {comp['p_value'].iloc[0]:.4g}\nGroups: {comp['groups'].iloc[0]}"
         QMessageBox.information(self, "Group Comparison Result", msg)
+
+    def refresh_group_plot(self):
+        """Refresh the group heatmap with current settings."""
+        if self.fixations is None or self.metrics is None:
+            return
+
+        group_var = self.group_var_combo.currentText()
+        if group_var == "None":
+            QMessageBox.warning(self, "No Group Variable", "Please select a group variable.")
+            return
+
+        bins = self.bins_spin.value()
+        sigma = self.sigma_spin.value()
+
+        df = self.metrics.copy()
+        if group_var not in df.columns:
+            if group_var in self.fixations.columns:
+                df = df.merge(self.fixations[["subject", group_var]].drop_duplicates(), on="subject", how="left")
+            else:
+                QMessageBox.warning(self, "Invalid Group Variable", f"Group variable '{group_var}' not found in data.")
+                return
+
+        df = df.dropna(subset=[group_var])
+        if df.empty:
+            QMessageBox.warning(self, "No Data", "No data available for selected group.")
+            return
+
+        from analysis.viz import plot_group_heatmap
+        group_labels = list(df[group_var].dropna().unique())
+        group_dfs = [self.fixations[self.fixations[group_var] == g] for g in group_labels]
+
+        try:
+            fig = plot_group_heatmap(group_dfs, group_labels, bins=bins, sigma=sigma)
+            self.group_plot.set_figure(fig)
+        except Exception as e:
+            QMessageBox.warning(self, "Plot Error", f"Could not plot group heatmap: {str(e)}")
     
     def export_results(self, output_dir: str):
         """Export results to the specified directory."""
