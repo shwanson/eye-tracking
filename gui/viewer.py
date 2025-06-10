@@ -9,7 +9,10 @@ from typing import Dict, List, Optional, Tuple, Any, Union
 import pandas as pd
 import numpy as np
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import (
+    FigureCanvasQTAgg as FigureCanvas,
+    NavigationToolbar2QT,
+)
 import json
 
 from PySide6.QtWidgets import (
@@ -33,23 +36,31 @@ import seaborn as sns
 
 class PlotTab(QWidget):
     """Widget for displaying matplotlib figures in a tab."""
-    
+
     def __init__(self, title: str, parent=None):
         super().__init__(parent)
         self.title = title
         self.layout = QVBoxLayout(self)
-        self.canvas = None
-        self.figure = None
+        self.figure = Figure()
+        self.canvas = FigureCanvas(self.figure)
+        self.toolbar = NavigationToolbar2QT(self.canvas, self)
+        self.layout.addWidget(self.canvas)
+        self.layout.addWidget(self.toolbar)
     
     def set_figure(self, figure: Figure):
         """Set the matplotlib figure to display."""
         if self.canvas:
             self.layout.removeWidget(self.canvas)
             self.canvas.deleteLater()
-        
+        if getattr(self, "toolbar", None):
+            self.layout.removeWidget(self.toolbar)
+            self.toolbar.deleteLater()
+
         self.figure = figure
         self.canvas = FigureCanvas(self.figure)
+        self.toolbar = NavigationToolbar2QT(self.canvas, self)
         self.layout.addWidget(self.canvas)
+        self.layout.addWidget(self.toolbar)
 
 
 class DataTableModel(QStandardItemModel):
