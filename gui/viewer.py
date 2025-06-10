@@ -360,8 +360,26 @@ class MainWindow(QMainWindow):
         """Calculate metrics from fixation data."""
         if self.fixations is None:
             return
-        # self.metrics = all_metrics(self.fixations)
-        self.metrics = None  # No metrics available
+        # Calculate simple metrics based on the detected fixations
+        self.metrics = self.compute_basic_metrics()
+
+    def compute_basic_metrics(self) -> pd.DataFrame:
+        """Compute basic fixation metrics per subject and stimulus."""
+        if self.fixations is None or self.fixations.empty:
+            return pd.DataFrame()
+
+        df = self.fixations.copy()
+        metrics = df.groupby(["subject", "stimulus"]).agg(
+            n_fixations=("duration_s", "size"),
+            dwell_ms=("duration_s", lambda s: s.sum() * 1000),
+            ttf_ms=("start_s", lambda s: s.min() * 1000),
+        ).reset_index()
+
+        # Proportion of dwell time relative to the sum per stimulus
+        metrics["dwell_prop"] = metrics["dwell_ms"] / metrics.groupby("stimulus")[
+            "dwell_ms"
+        ].transform("sum")
+        return metrics
     
     def update_filters(self):
         """Update the filter dropdowns with available subjects and stimuli."""
