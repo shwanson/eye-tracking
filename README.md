@@ -128,4 +128,26 @@ fig.savefig("heatmap.png")
 # Create a scanpath
 fig = plot_scanpath(fixations)
 fig.savefig("scanpath.png")
-``` 
+```
+
+### Using the GUI for Analysis
+
+The GUI viewer (`python -m gui.viewer`) provides an interactive way to explore
+eye tracking data. Use **Load Data** in the toolbar to select one or more CSV
+files. Once loaded, available subjects and stimuli appear in the drop-down
+filters. Selecting a subject or stimulus updates the plots for that subset, or
+choose **All** to view everything.
+
+In the **Group Analysis** tab pick a group variable (such as `subject` or
+`stimulus`) and a metric (`dwell_prop`, `ttf_ms`, or `n_fixations`). Click
+**Run Analysis** to compute statistics and draw the group heatmap. After
+changing the number of bins or the smoothing sigma you can press **Refresh
+Plot** to redraw the heatmap without rerunning the statistics.
+
+The **Metrics** tab visualizes metrics including `dwell_prop`, `ttf_ms`,
+`n_fixations`, and `transitions`. Choose the desired metric and optionally group
+by subject to update the plot. These metrics are calculated automatically when
+data are loaded.
+
+Finally, the **Export Results** button saves the current fixations, computed
+metrics, and visualizations to a directory of your choice.
