@@ -27,6 +27,8 @@ from etl.preprocess import preprocess_pipeline
 from analysis.viz import (
     plot_gaze_timeseries, plot_heatmap, plot_scanpath, plot_group_heatmap
 )
+from analysis.metrics import all_metrics, transition_matrix
+import seaborn as sns
 
 
 class PlotTab(QWidget):
@@ -362,8 +364,11 @@ class MainWindow(QMainWindow):
         """Calculate metrics from fixation data."""
         if self.fixations is None:
             return
-        # self.metrics = all_metrics(self.fixations)
-        self.metrics = None  # No metrics available
+        try:
+            self.metrics = all_metrics(self.fixations)
+        except Exception as e:
+            print(f"Error calculating metrics: {e}")
+            self.metrics = pd.DataFrame()
     
     def update_filters(self):
         """Update the filter dropdowns with available subjects and stimuli."""
@@ -508,8 +513,44 @@ class MainWindow(QMainWindow):
         """Update the metrics visualization tab."""
         if self.metrics is None:
             return
-        # No metrics plotting available
-        return
+
+        metric = self.metric_type_combo.currentText()
+        by_subject = self.by_subject_check.isChecked()
+
+        df = self.metrics.copy()
+        if self.current_subject:
+            df = df[df["subject"] == self.current_subject]
+        if self.current_stimulus:
+            df = df[df["stimulus"] == self.current_stimulus]
+
+        if df.empty:
+            fig = Figure(figsize=(6, 4))
+            ax = fig.add_subplot(111)
+            ax.text(0.5, 0.5, "No data", ha="center", va="center")
+            ax.axis("off")
+            self.metrics_plot.set_figure(fig)
+            return
+
+        if metric == "transitions":
+            _, fix_df = self.get_filtered_data()
+            mat, labels = transition_matrix(fix_df)
+            fig = Figure(figsize=(6, 5))
+            ax = fig.add_subplot(111)
+            if not mat.empty:
+                sns.heatmap(mat, annot=True, fmt="g", cmap="Blues", ax=ax)
+            ax.set_title("Transition Matrix")
+            self.metrics_plot.set_figure(fig)
+            return
+
+        x_col = "subject" if by_subject else "stimulus"
+        fig = Figure(figsize=(8, 6))
+        ax = fig.add_subplot(111)
+        sns.barplot(data=df, x=x_col, y=metric, ax=ax, ci="sd")
+        ax.set_xlabel(x_col.capitalize())
+        ax.set_ylabel(metric)
+        ax.set_title(f"{metric} by {x_col}")
+        fig.tight_layout()
+        self.metrics_plot.set_figure(fig)
     
     def run_group_analysis(self):
         """Run group analysis and update the group tab."""
