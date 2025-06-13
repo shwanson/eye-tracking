@@ -34,6 +34,9 @@ project/
 
 ```bash
 pip install pandas numpy scipy matplotlib seaborn shapely statsmodels pingouin PySide6
+
+# Extra dependencies for data collection
+pip install pygame tobii_research
 ```
 
 ### Running the GUI
@@ -151,3 +154,11 @@ data are loaded.
 
 Finally, the **Export Results** button saves the current fixations, computed
 metrics, and visualizations to a directory of your choice.
+
+### Recording New Data
+
+1. Start the application with `python -m gui.viewer`.
+2. Switch to the **Collect Data** tab.
+3. Enter a subject ID and click **Start Study** to begin recording.
+4. After the session, CSV files are saved in the `data` folder using the
+   `SubjectID_StimulusID.csv` naming pattern.
