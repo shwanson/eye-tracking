@@ -118,7 +118,9 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
         pygame.quit()
         return
 
-    for img_path in image_paths:
+    pause_after = len(image_paths) // 2
+
+    for i, img_path in enumerate(image_paths):
         gaze_samples: List[Dict[str, float]] = []
 
         if tracker:
@@ -175,6 +177,31 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
 
         csv_name = f"{subject_id}_{img_path.stem}.csv"
         _write_samples(output_dir / csv_name, gaze_samples)
+
+        # Pause halfway through the stimuli
+        if pause_after and i + 1 == pause_after:
+            font = pygame.font.Font(None, 36)
+            text = font.render("Paused, press 'R' to resume.", True, (255, 255, 255))
+            text_rect = text.get_rect(center=screen.get_rect().center)
+            screen.fill((0, 0, 0))
+            screen.blit(text, text_rect)
+            pygame.display.flip()
+
+            paused = True
+            while paused:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        return
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            pygame.quit()
+                            return
+                        if event.key == pygame.K_r:
+                            if tracker:
+                                calibrate_tracker(tracker, screen)
+                            paused = False
+                time.sleep(0.1)
 
     pygame.quit()
 
