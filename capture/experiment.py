@@ -91,7 +91,6 @@ def _write_samples(csv_path: Path, samples: List[Dict[str, float]]) -> None:
         writer.writeheader()
         writer.writerows(samples)
 
-
 def prompt_experiment_params() -> tuple[str, int, float, float]:
     """Interactively ask the user for experiment parameters."""
     subject_id = input("Subject ID: ").strip()
@@ -106,12 +105,15 @@ def run_experiment(
     num_images: int,
     min_duration_s: float,
     max_duration_s: float,
+  
 ) -> None:
     """Run the gaze recording experiment for a subject.
 
     If a Tobii eye tracker is available it will be used, otherwise the
     experiment runs in a simulated mode that simply displays the images and
-    records timestamps without gaze coordinates.
+    records timestamps without gaze coordinates. Images can be skipped with the
+    space bar after ``min_duration_s`` seconds and will automatically advance
+    after ``max_duration_s`` seconds.
     """
 
     tracker = None
@@ -150,7 +152,8 @@ def run_experiment(
             screen.fill((0, 0, 0))
             pygame.display.flip()
 
-            if time.time() - start >= min_duration_s:
+            if time.time() - start >= max_duration_s:
+
                 running = False
 
         pygame.quit()
@@ -164,8 +167,8 @@ def run_experiment(
                 left = gaze_data.get("left_gaze_point_on_display_area") or (None, None)
                 right = gaze_data.get("right_gaze_point_on_display_area") or (None, None)
                 gaze_samples.append({
-                    "system_time_stamp": gaze_data.get("system_time_stamp"),
-                    "device_time_stamp": gaze_data.get("device_time_stamp"),
+                    "system_time": gaze_data.get("system_time_stamp"),
+                    "device_time": gaze_data.get("device_time_stamp"),
                     "left_x": left[0],
                     "left_y": left[1],
                     "right_x": right[0],
@@ -177,8 +180,8 @@ def run_experiment(
             # Fallback sample collection when no tracker is present
             def gaze_callback() -> None:
                 gaze_samples.append({
-                    "system_time_stamp": time.time(),
-                    "device_time_stamp": None,
+                    "system_time": time.time(),
+                    "device_time": None,
                     "left_x": None,
                     "left_y": None,
                     "right_x": None,
@@ -186,7 +189,12 @@ def run_experiment(
                 })
 
         img = pygame.image.load(str(img_path))
-        img_rect = img.get_rect(center=screen.get_rect().center)
+        screen_rect = screen.get_rect()
+        iw, ih = img.get_size()
+        scale = min(screen_rect.width / iw, screen_rect.height / ih)
+        new_size = (int(iw * scale), int(ih * scale))
+        img = pygame.transform.smoothscale(img, new_size)
+        img_rect = img.get_rect(center=screen_rect.center)
 
         duration_s = random.uniform(min_duration_s, max_duration_s)
         start = time.time()
@@ -194,9 +202,17 @@ def run_experiment(
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    running = False
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    running = False
+                    pygame.quit()
+                    return
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        return
+                    if (
+                        event.key == pygame.K_SPACE
+                        and time.time() - start >= min_duration_s
+                    ):
+                        running = False
 
             screen.fill((0, 0, 0))
             screen.blit(img, img_rect)
@@ -206,13 +222,13 @@ def run_experiment(
             if not tracker:
                 gaze_callback()
 
-            if time.time() - start >= duration_s:
+            if time.time() - start >= max_duration_s:
                 running = False
 
         if tracker:
             tracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA, gaze_callback)  # type: ignore
 
-        csv_name = f"{subject_id}_{img_path.stem}.csv"
+        csv_name = f"P{subject_id}_{img_path.stem}.csv"
         _write_samples(output_dir / csv_name, gaze_samples)
 
     pygame.quit()
