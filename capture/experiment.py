@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import time
+import random
 from pathlib import Path
 from typing import Dict, List
 
@@ -55,6 +56,20 @@ def _load_images() -> List[Path]:
     paths: List[Path] = []
     paths.extend(sorted(folder.glob("*.jpg")))
     paths.extend(sorted(folder.glob("*.png")))
+    random.shuffle(paths)
+    return paths
+
+
+def _load_control_images() -> List[Path]:
+    """Load control image file paths from the ``data/control_images`` folder."""
+    folder = BASE_DIR / "data" / "control_images"
+    # Ensure the folder exists so users know where to place images
+    folder.mkdir(parents=True, exist_ok=True)
+
+    paths: List[Path] = []
+    paths.extend(sorted(folder.glob("*.jpg")))
+    paths.extend(sorted(folder.glob("*.png")))
+    random.shuffle(paths)
     return paths
 
 
@@ -94,12 +109,14 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
     else:
         print("Running without eye tracker - demo mode")
 
-    image_paths = _load_images()
+    current_paths = _load_images()
+    control_paths = _load_control_images()
+    image_paths = current_paths + control_paths
     output_dir = BASE_DIR / "data" / "csv"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if not image_paths:
-        print("No stimulus images found in data/current_images")
+        print("No stimulus images found in data/current_images or data/control_images")
         start = time.time()
         running = True
         while running:
@@ -118,7 +135,7 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
         pygame.quit()
         return
 
-    for img_path in image_paths:
+    for idx, img_path in enumerate(image_paths):
         gaze_samples: List[Dict[str, float]] = []
 
         if tracker:
