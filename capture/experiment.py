@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import time
+import random
 from pathlib import Path
 from typing import Dict, List
 
@@ -77,28 +78,36 @@ def _write_samples(csv_path: Path, samples: List[Dict[str, float]]) -> None:
         writer.writerows(samples)
 
 
-def find_tracker() -> "tr.EyeTracker":
-    """Return the first available Tobii eye tracker or raise an error."""
-    if tr is None:
-        raise RuntimeError("tobii_research library is not available")
-
-    trackers = tr.find_all_eyetrackers()
-    if not trackers:
-        raise RuntimeError("No eye trackers found")
-
-    tracker = trackers[0]
-    name = getattr(tracker, "device_name", str(tracker))
-    print(f"Found eye tracker: {name}")
-    return tracker
+def prompt_experiment_params() -> tuple[str, int, float, float]:
+    """Interactively ask the user for experiment parameters."""
+    subject_id = input("Subject ID: ").strip()
+    num_images = int(input("Number of images to present: "))
+    min_duration = float(input("Minimum display duration (s): "))
+    max_duration = float(input("Maximum display duration (s): "))
+    return subject_id, num_images, min_duration, max_duration
 
 
-def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
-    """Run the gaze recording experiment for a subject."""
+def run_experiment(
+    subject_id: str,
+    num_images: int,
+    min_duration_s: float,
+    max_duration_s: float,
+) -> None:
+    """Run the gaze recording experiment for a subject.
 
-    try:
-        tracker = find_tracker()
-    except RuntimeError as exc:
-        raise SystemExit(str(exc))
+    If a Tobii eye tracker is available it will be used, otherwise the
+    experiment runs in a simulated mode that simply displays the images and
+    records timestamps without gaze coordinates.
+    """
+
+    tracker = None
+    if tr is not None:
+        try:
+            trackers = tr.find_all_eyetrackers()
+            if trackers:
+                tracker = trackers[0]
+        except Exception:  # pragma: no cover - fail gracefully without tracker
+            tracker = None
 
     pygame.init()
     screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -107,6 +116,8 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
     calibrate_tracker(tracker, screen)
 
     image_paths = _load_images()
+    if num_images > 0:
+        image_paths = image_paths[:num_images]
     output_dir = BASE_DIR / "data" / "csv"
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -124,7 +135,7 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
             screen.fill((0, 0, 0))
             pygame.display.flip()
 
-            if time.time() - start >= duration_s:
+            if time.time() - start >= min_duration_s:
                 running = False
 
         pygame.quit()
@@ -162,6 +173,7 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
         img = pygame.image.load(str(img_path))
         img_rect = img.get_rect(center=screen.get_rect().center)
 
+        duration_s = random.uniform(min_duration_s, max_duration_s)
         start = time.time()
         running = True
         while running:
@@ -193,13 +205,9 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
 
 def main(argv: List[str] | None = None) -> int:
     """Command line entry point to run the experiment."""
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Run eye tracking experiment")
-    parser.add_argument("subject_id", type=str, help="Subject identifier")
-    args = parser.parse_args(argv)
-
-    run_experiment(args.subject_id)
+    _ = argv  # unused but kept for backward compatibility
+    subject_id, num_images, min_dur, max_dur = prompt_experiment_params()
+    run_experiment(subject_id, num_images, min_dur, max_dur)
     return 0
 
 
