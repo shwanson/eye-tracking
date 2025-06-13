@@ -202,9 +202,11 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    running = False
+                    pygame.quit()
+                    return
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    running = False
+                    pygame.quit()
+                    return
 
             screen.fill((0, 0, 0))
             pygame.display.flip()
@@ -274,17 +276,15 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
+                    if tracker:
+                        tracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA, gaze_callback)  # type: ignore
                     pygame.quit()
                     return
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        pygame.quit()
-                        return
-                    if (
-                        event.key == pygame.K_SPACE
-                        and time.time() - start >= min_duration_s
-                    ):
-                        running = False
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    if tracker:
+                        tracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA, gaze_callback)  # type: ignore
+                    pygame.quit()
+                    return
 
             screen.fill((0, 0, 0))
             screen.blit(img, img_rect)
