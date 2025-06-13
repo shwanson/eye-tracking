@@ -6,6 +6,9 @@ import time
 from pathlib import Path
 from typing import Dict, List
 
+# Resolve the repository root to load data regardless of the cwd
+BASE_DIR = Path(__file__).resolve().parents[1]
+
 import pygame
 try:
     import tobii_research as tr
@@ -45,7 +48,7 @@ def calibrate_tracker(tracker: "tr.EyeTracker", screen: pygame.Surface) -> None:
 
 def _load_images() -> List[Path]:
     """Load stimulus image file paths from the ``data/current_images`` folder."""
-    folder = Path("data/current_images")
+    folder = BASE_DIR / "data" / "current_images"
     paths: List[Path] = []
     if folder.exists():
         paths.extend(sorted(folder.glob("*.jpg")))
@@ -90,7 +93,7 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
         print("Running without eye tracker - demo mode")
 
     image_paths = _load_images()
-    output_dir = Path("data/csv")
+    output_dir = BASE_DIR / "data" / "csv"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     for img_path in image_paths:
