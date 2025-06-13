@@ -27,21 +27,30 @@ def calibrate_tracker(tracker: "tr.EyeTracker", screen: pygame.Surface) -> None:
 
     screen_rect = screen.get_rect()
     points = [
-        (0.1, 0.1),
-        (0.9, 0.1),
-        (0.5, 0.5),
-        (0.1, 0.9),
-        (0.9, 0.9),
+        (0.5, 0.5),  # center
+        (0.1, 0.1),  # top-left
+        (0.9, 0.1),  # top-right
+        (0.1, 0.9),  # bottom-left
+        (0.9, 0.9),  # bottom-right
     ]
+
     for x_rel, y_rel in points:
         x = int(screen_rect.width * x_rel)
         y = int(screen_rect.height * y_rel)
-        screen.fill((0, 0, 0))
-        pygame.draw.circle(screen, (255, 0, 0), (x, y), 20)
-        pygame.display.flip()
-        time.sleep(0.5)
-        calib.collect_data(x_rel, y_rel)
-        time.sleep(0.2)
+
+        start = time.time()
+        status = tr.CALIBRATION_STATUS_NEW_DATA
+        while status != tr.CALIBRATION_STATUS_SUCCESS:
+            screen.fill((0, 0, 0))
+            pygame.draw.circle(screen, (255, 0, 0), (x, y), 20)
+            pygame.display.flip()
+            status = calib.collect_data(x_rel, y_rel)
+            if status != tr.CALIBRATION_STATUS_SUCCESS:
+                time.sleep(0.1)
+
+        elapsed = time.time() - start
+        if elapsed < 3.0:
+            time.sleep(3.0 - elapsed)
 
     calib.compute_and_apply()
     calib.leave_calibration_mode()
@@ -101,13 +110,10 @@ def run_experiment(
             tracker = None
 
     pygame.init()
-    screen = pygame.display.set_mode((1280, 720))
+    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
     pygame.mouse.set_visible(False)
 
-    if tracker:
-        calibrate_tracker(tracker, screen)
-    else:
-        print("Running without eye tracker - demo mode")
+    calibrate_tracker(tracker, screen)
 
     image_paths = _load_images()
     if num_images > 0:
