@@ -49,10 +49,12 @@ def calibrate_tracker(tracker: "tr.EyeTracker", screen: pygame.Surface) -> None:
 def _load_images() -> List[Path]:
     """Load stimulus image file paths from the ``data/current_images`` folder."""
     folder = BASE_DIR / "data" / "current_images"
+    # Ensure the folder exists so users know where to place images
+    folder.mkdir(parents=True, exist_ok=True)
+
     paths: List[Path] = []
-    if folder.exists():
-        paths.extend(sorted(folder.glob("*.jpg")))
-        paths.extend(sorted(folder.glob("*.png")))
+    paths.extend(sorted(folder.glob("*.jpg")))
+    paths.extend(sorted(folder.glob("*.png")))
     return paths
 
 
@@ -95,6 +97,26 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
     image_paths = _load_images()
     output_dir = BASE_DIR / "data" / "csv"
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    if not image_paths:
+        print("No stimulus images found in data/current_images")
+        start = time.time()
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    running = False
+
+            screen.fill((0, 0, 0))
+            pygame.display.flip()
+
+            if time.time() - start >= duration_s:
+                running = False
+
+        pygame.quit()
+        return
 
     for img_path in image_paths:
         gaze_samples: List[Dict[str, float]] = []
