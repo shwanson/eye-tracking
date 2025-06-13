@@ -286,9 +286,26 @@ def run_experiment(subject: str, num_images: int, min_dur: float, max_dur: float
 # ---------------------------------------------------------------------------
 
 def main(argv: List[str] | None = None) -> int:
-    _ = argv  # unused for now
-    subject, num, min_d, max_d = prompt_experiment_params()
-    run_experiment(subject, num, min_d, max_d)
+    """Command line entry point for running the experiment."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run gaze experiment")
+    parser.add_argument("--subject", type=str, help="Subject identifier")
+    parser.add_argument("--num-images", type=int, help="Number of images to show")
+    parser.add_argument("--min", dest="min_dur", type=float, help="Minimum display time (s)")
+    parser.add_argument("--max", dest="max_dur", type=float, help="Maximum display time (s)")
+
+    args = parser.parse_args(argv)
+
+    if all(
+        v is not None
+        for v in (args.subject, args.num_images, args.min_dur, args.max_dur)
+    ):
+        params = (args.subject, args.num_images, args.min_dur, args.max_dur)
+    else:
+        params = prompt_experiment_params()
+
+    run_experiment(*params)
     return 0
 
 

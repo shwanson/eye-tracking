@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton
+    QWidget,
+    QVBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QSpinBox,
+    QDoubleSpinBox,
 )
 
 from .experiment_runner import run_experiment
@@ -16,14 +22,29 @@ class ExperimentThread(QThread):
 
     finished_signal = Signal(str)
 
-    def __init__(self, subject_id: str, parent: QObject | None = None) -> None:
+    def __init__(
+        self,
+        subject_id: str,
+        num_images: int,
+        min_dur: float,
+        max_dur: float,
+        parent: QObject | None = None,
+    ) -> None:
         super().__init__(parent)
         self.subject_id = subject_id
+        self.num_images = num_images
+        self.min_dur = min_dur
+        self.max_dur = max_dur
 
     def run(self) -> None:  # type: ignore[override]
         msg = ""
         try:
-            run_experiment(self.subject_id)
+            run_experiment(
+                self.subject_id,
+                self.num_images,
+                self.min_dur,
+                self.max_dur,
+            )
             msg = "Study finished"
         except Exception as e:  # pragma: no cover - simple passthrough
             msg = f"Error: {e}"
@@ -42,6 +63,26 @@ class DataCollectionTab(QWidget):
 
         self.subject_edit = QLineEdit()
         layout.addWidget(self.subject_edit)
+
+        layout.addWidget(QLabel("Number of Images:"))
+        self.num_spin = QSpinBox()
+        self.num_spin.setRange(1, 1000)
+        self.num_spin.setValue(1)
+        layout.addWidget(self.num_spin)
+
+        layout.addWidget(QLabel("Min Duration (s):"))
+        self.min_spin = QDoubleSpinBox()
+        self.min_spin.setRange(0.1, 60.0)
+        self.min_spin.setSingleStep(0.1)
+        self.min_spin.setValue(1.0)
+        layout.addWidget(self.min_spin)
+
+        layout.addWidget(QLabel("Max Duration (s):"))
+        self.max_spin = QDoubleSpinBox()
+        self.max_spin.setRange(0.1, 60.0)
+        self.max_spin.setSingleStep(0.1)
+        self.max_spin.setValue(3.0)
+        layout.addWidget(self.max_spin)
 
         self.start_button = QPushButton("Start Study")
         layout.addWidget(self.start_button)
@@ -63,7 +104,10 @@ class DataCollectionTab(QWidget):
         self.start_button.setEnabled(False)
         self.status_label.setText("Running...")
 
-        self._thread = ExperimentThread(subject_id)
+        num_images = self.num_spin.value()
+        min_dur = self.min_spin.value()
+        max_dur = self.max_spin.value()
+        self._thread = ExperimentThread(subject_id, num_images, min_dur, max_dur)
         self._thread.finished_signal.connect(self._on_finished)
         self._thread.start()
 
