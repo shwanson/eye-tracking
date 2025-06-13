@@ -1,46 +1,101 @@
-"""Experiment capture utilities using Tobii eye tracker."""
+"""Run a Tobii based gaze experiment."""
 
 from __future__ import annotations
 
 import csv
+import os
 import random
+import sys
 import time
-import random
 from pathlib import Path
-from typing import Dict, List
-
-# Resolve the repository root to load data regardless of the cwd
-BASE_DIR = Path(__file__).resolve().parents[1]
+from typing import Dict, List, Tuple
 
 import pygame
 
 try:
-    import tobii_research as tr
-except Exception:  # pragma: no cover - library not available in tests
+    import tobii_research as tr  # type: ignore
+except Exception:  # pragma: no cover - library not available
     tr = None  # type: ignore
 
 
+BASE_DIR = Path(__file__).resolve().parents[1]
+CURRENT_DIR = BASE_DIR / "data" / "current_images"
+CONTROL_DIR = BASE_DIR / "data" / "control_images"
+CSV_DIR = BASE_DIR / "data" / "csv"
+
+
+# ---------------------------------------------------------------------------
+# Utility functions
+# ---------------------------------------------------------------------------
+
+def prompt_experiment_params() -> Tuple[str, int, float, float]:
+    """Interactively ask for experiment parameters."""
+    subject = input("Subject ID: ").strip()
+    while not subject:
+        subject = input("Subject ID: ").strip()
+
+    num = input("Number of images to show: ").strip()
+    while not num.isdigit() or int(num) <= 0:
+        num = input("Number of images to show: ").strip()
+    num_images = int(num)
+
+    def _float(prompt: str) -> float:
+        while True:
+            val = input(prompt).strip()
+            try:
+                return float(val)
+            except ValueError:
+                continue
+
+    min_dur = _float("Minimum display time (s): ")
+    max_dur = _float("Maximum display time (s): ")
+    if max_dur < min_dur:
+        max_dur = min_dur
+    return subject, num_images, min_dur, max_dur
+
+
+def _load_images(folder: Path) -> List[Path]:
+    folder.mkdir(parents=True, exist_ok=True)
+    paths: List[Path] = []
+    paths.extend(sorted(folder.glob("*.jpg")))
+    paths.extend(sorted(folder.glob("*.png")))
+    random.shuffle(paths)
+    return paths
+
+
+def _write_csv(path: Path, rows: List[Dict[str, object]]) -> None:
+    if not rows:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+# ---------------------------------------------------------------------------
+# Calibration
+# ---------------------------------------------------------------------------
+
 def calibrate_tracker(tracker: "tr.EyeTracker", screen: pygame.Surface) -> None:
-    """Calibrate the Tobii eye tracker using a simple five point procedure."""
     if tr is None:
         raise RuntimeError("tobii_research library is not available")
 
     calib = tr.ScreenBasedCalibration(tracker)
     calib.enter_calibration_mode()
 
-    screen_rect = screen.get_rect()
+    rect = screen.get_rect()
     points = [
-        (0.5, 0.5),  # center
-        (0.1, 0.1),  # top-left
-        (0.9, 0.1),  # top-right
-        (0.1, 0.9),  # bottom-left
-        (0.9, 0.9),  # bottom-right
+        (0.5, 0.5),
+        (0.1, 0.1),
+        (0.9, 0.1),
+        (0.1, 0.9),
+        (0.9, 0.9),
     ]
 
     for x_rel, y_rel in points:
-        x = int(screen_rect.width * x_rel)
-        y = int(screen_rect.height * y_rel)
-
+        x = int(rect.width * x_rel)
+        y = int(rect.height * y_rel)
         start = time.time()
         status = tr.CALIBRATION_STATUS_NEW_DATA
         while status != tr.CALIBRATION_STATUS_SUCCESS:
@@ -50,7 +105,6 @@ def calibrate_tracker(tracker: "tr.EyeTracker", screen: pygame.Surface) -> None:
             status = calib.collect_data(x_rel, y_rel)
             if status != tr.CALIBRATION_STATUS_SUCCESS:
                 time.sleep(0.1)
-
         elapsed = time.time() - start
         if elapsed < 3.0:
             time.sleep(3.0 - elapsed)
@@ -59,128 +113,73 @@ def calibrate_tracker(tracker: "tr.EyeTracker", screen: pygame.Surface) -> None:
     calib.leave_calibration_mode()
 
 
-def _load_images() -> List[Path]:
-    """Load stimulus image file paths from the ``data/current_images`` folder."""
-    folder = BASE_DIR / "data" / "current_images"
-    # Ensure the folder exists so users know where to place images
-    folder.mkdir(parents=True, exist_ok=True)
-
-    paths: List[Path] = []
-    paths.extend(sorted(folder.glob("*.jpg")))
-    paths.extend(sorted(folder.glob("*.png")))
-    random.shuffle(paths)
-    return paths
-
-
-def _load_control_images() -> List[Path]:
-    """Load control image file paths from the ``data/control_images`` folder."""
-    folder = BASE_DIR / "data" / "control_images"
-    # Ensure the folder exists so users know where to place images
-    folder.mkdir(parents=True, exist_ok=True)
-
-    paths: List[Path] = []
-    paths.extend(sorted(folder.glob("*.jpg")))
-    paths.extend(sorted(folder.glob("*.png")))
-    random.shuffle(paths)
-    return paths
-
-
-def _load_control_images() -> List[Path]:
-    """Load control image file paths from the ``data/control_images`` folder."""
-    folder = BASE_DIR / "data" / "control_images"
-    folder.mkdir(parents=True, exist_ok=True)
-
-    paths: List[Path] = []
-    paths.extend(sorted(folder.glob("*.jpg")))
-    paths.extend(sorted(folder.glob("*.png")))
-    return paths
-
-
-def _write_samples(csv_path: Path, samples: List[Dict[str, float]]) -> None:
-    """Write gaze samples to CSV."""
-    if not samples:
-        return
-    with csv_path.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=samples[0].keys())
-        writer.writeheader()
-        writer.writerows(samples)
-
+# ---------------------------------------------------------------------------
+# Validity check
+# ---------------------------------------------------------------------------
 
 def _run_validity_check(
-    screen: pygame.Surface,
-    subject_id: str,
-    shown_images: List[Path],
+    screen: pygame.Surface, subject: str, shown: List[Path]
 ) -> None:
-    """Run the image recognition validity check after stimulus presentation."""
-
-    control = _load_control_images()
-    trials = [(p, "Y") for p in shown_images] + [(p, "N") for p in control]
+    control = _load_images(CONTROL_DIR)
+    trials = [(p, "Y") for p in shown] + [(p, "N") for p in control]
     random.shuffle(trials)
 
     font = pygame.font.SysFont(None, 36)
-    results: List[Dict[str, str]] = []
+    results: List[Dict[str, object]] = []
 
+    rect = screen.get_rect()
     for path, expected in trials:
         img = pygame.image.load(str(path))
-        img_rect = img.get_rect(center=screen.get_rect().center)
+        iw, ih = img.get_size()
+        scale = min(rect.width / iw, rect.height / ih)
+        img = pygame.transform.smoothscale(img, (int(iw * scale), int(ih * scale)))
+        img_rect = img.get_rect(center=rect.center)
 
         answered = False
-        response = ""
+        resp = ""
         while not answered:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     return
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_y:
-                        response = "Y"
-                        answered = True
-                    elif event.key == pygame.K_n:
-                        response = "N"
-                        answered = True
-                    elif event.key == pygame.K_ESCAPE:
+                    if event.key == pygame.K_ESCAPE:
                         pygame.quit()
                         return
-
+                    if event.key == pygame.K_y:
+                        resp = "Y"
+                        answered = True
+                    if event.key == pygame.K_n:
+                        resp = "N"
+                        answered = True
             screen.fill((0, 0, 0))
             screen.blit(img, img_rect)
             prompt = font.render(
                 "Was this shown before? (Y=Yes, N=No)", True, (255, 255, 255)
             )
             prompt_rect = prompt.get_rect(
-                center=(screen.get_rect().centerx, screen.get_rect().height - 30)
+                center=(rect.centerx, rect.height - 30)
             )
             screen.blit(prompt, prompt_rect)
             pygame.display.flip()
+        results.append({"image": path.name, "expected": expected, "response": resp})
 
-        results.append({"image": path.name, "expected": expected, "response": response})
-
-    output_dir = BASE_DIR / "data" / "csv"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    csv_path = output_dir / f"P{subject_id}_Valididitätskontrolle.csv"
-    if results:
-        _write_samples(csv_path, results)
+    _write_csv(CSV_DIR / f"P{subject}_Valididitätskontrolle.csv", results)
 
 
-def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
+# ---------------------------------------------------------------------------
+# Experiment logic
+# ---------------------------------------------------------------------------
 
-    """Run the gaze recording experiment for a subject.
+def run_experiment(subject: str, num_images: int, min_dur: float, max_dur: float) -> None:
+    if tr is None:
+        raise RuntimeError("tobii_research library is not available")
 
-    If a Tobii eye tracker is available it will be used, otherwise the
-    experiment runs in a simulated mode that simply displays the images and
-    records timestamps without gaze coordinates. Images can be skipped with the
-    space bar after ``min_duration_s`` seconds and will automatically advance
-    after ``max_duration_s`` seconds.
-    """
-
-    tracker = None
-    if tr is not None:
-        try:
-            trackers = tr.find_all_eyetrackers()
-            if trackers:
-                tracker = trackers[0]
-        except Exception:  # pragma: no cover - fail gracefully without tracker
-            tracker = None
+    trackers = tr.find_all_eyetrackers()
+    if not trackers:
+        raise RuntimeError("No Tobii eye tracker found")
+    tracker = trackers[0]
+    print(f"Using eye tracker: {tracker.model}\n")
 
     pygame.init()
     screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -188,54 +187,36 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
 
     calibrate_tracker(tracker, screen)
 
-    current_paths = _load_images()
-    control_paths = _load_control_images()
-    image_paths = current_paths + control_paths
-
-    output_dir = BASE_DIR / "data" / "csv"
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    if not image_paths:
-        print("No stimulus images found in data/current_images or data/control_images")
-        start = time.time()
-        running = True
-        while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    return
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    pygame.quit()
-                    return
-
-            screen.fill((0, 0, 0))
-            pygame.display.flip()
-
-            if time.time() - start >= max_duration_s:
-
-                running = False
-
+    stimuli = _load_images(CURRENT_DIR)
+    if not stimuli:
+        print("No images found in", CURRENT_DIR)
         pygame.quit()
         return
+    if num_images > len(stimuli):
+        num_images = len(stimuli)
+    stimuli = stimuli[:num_images]
 
-    # Dictionary to hold gaze samples for each image
-    gaze_data: Dict[str, List[Dict[str, float]]] = {p.stem: [] for p in image_paths}
-    current_image = ""
+    shown: List[Path] = []
+    rect = screen.get_rect()
 
-    if tracker:
+    half = len(stimuli) // 2 if stimuli else 0
 
-        def gaze_callback(gaze_data_raw: Dict) -> None:
-            if not current_image:
-                return
-            left = gaze_data_raw.get("left_gaze_point_on_display_area") or (None, None)
-            right = gaze_data_raw.get("right_gaze_point_on_display_area") or (
-                None,
-                None,
-            )
-            gaze_data[current_image].append(
+    for idx, path in enumerate(stimuli):
+        img = pygame.image.load(str(path))
+        iw, ih = img.get_size()
+        scale = min(rect.width / iw, rect.height / ih)
+        img = pygame.transform.smoothscale(img, (int(iw * scale), int(ih * scale)))
+        img_rect = img.get_rect(center=rect.center)
+
+        samples: List[Dict[str, object]] = []
+
+        def gaze_callback(data: Dict) -> None:
+            left = data.get("left_gaze_point_on_display_area") or (None, None)
+            right = data.get("right_gaze_point_on_display_area") or (None, None)
+            samples.append(
                 {
-                    "system_time_stamp": gaze_data_raw.get("system_time_stamp"),
-                    "device_time_stamp": gaze_data_raw.get("device_time_stamp"),
+                    "system_time_stamp": data.get("system_time_stamp"),
+                    "device_time_stamp": data.get("device_time_stamp"),
                     "left_x": left[0],
                     "left_y": left[1],
                     "right_x": right[0],
@@ -244,79 +225,40 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
             )
 
         tracker.subscribe_to(tr.EYETRACKER_GAZE_DATA, gaze_callback, as_dictionary=True)
-    else:
 
-        def gaze_callback() -> None:
-            if not current_image:
-                return
-            gaze_data[current_image].append(
-                {
-                    "system_time_stamp": time.time(),
-                    "device_time_stamp": None,
-                    "left_x": None,
-                    "left_y": None,
-                    "right_x": None,
-                    "right_y": None,
-                }
-            )
-
-    for img_path in image_paths:
-        current_image = img_path.stem
-        img = pygame.image.load(str(img_path))
-        screen_rect = screen.get_rect()
-        iw, ih = img.get_size()
-        scale = min(screen_rect.width / iw, screen_rect.height / ih)
-        new_size = (int(iw * scale), int(ih * scale))
-        img = pygame.transform.smoothscale(img, new_size)
-        img_rect = img.get_rect(center=screen_rect.center)
-
-        duration_s = random.uniform(min_duration_s, max_duration_s)
         start = time.time()
+        allow_skip = False
         running = True
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    if tracker:
-                        tracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA, gaze_callback)  # type: ignore
+                    tracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA, gaze_callback)
                     pygame.quit()
                     return
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    if tracker:
-                        tracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA, gaze_callback)  # type: ignore
-                    pygame.quit()
-                    return
-
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        tracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA, gaze_callback)
+                        pygame.quit()
+                        return
+                    if event.key == pygame.K_SPACE and allow_skip:
+                        running = False
             screen.fill((0, 0, 0))
             screen.blit(img, img_rect)
             pygame.display.flip()
 
-            if not tracker:
-                gaze_callback()
-
-            if time.time() - start >= max_duration_s:
+            if time.time() - start >= min_dur:
+                allow_skip = True
+            if time.time() - start >= max_dur:
                 running = False
 
-    current_image = ""
-    if tracker:
-        tracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA, gaze_callback)  # type: ignore
+        tracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA, gaze_callback)
+        shown.append(path)
+        _write_csv(CSV_DIR / f"P{subject}_{path.stem}.csv", samples)
 
-    # Write gaze data to CSV files
-    for img_path in image_paths:
-        csv_name = f"{subject_id}_{img_path.stem}.csv"
-        _write_samples(output_dir / csv_name, gaze_data[img_path.stem])
-
-    # Run validity check before closing
-    _run_validity_check(screen, subject_id, image_paths)
-
-        # Pause halfway through the stimuli
-        if pause_after and i + 1 == pause_after:
-            font = pygame.font.Font(None, 36)
-            text = font.render("Paused, press 'R' to resume.", True, (255, 255, 255))
-            text_rect = text.get_rect(center=screen.get_rect().center)
-            screen.fill((0, 0, 0))
-            screen.blit(text, text_rect)
-            pygame.display.flip()
-
+        if half and idx + 1 == half:
+            font = pygame.font.SysFont(None, 36)
+            text = font.render("Paused, press 'R' to resume", True, (255, 255, 255))
+            text_rect = text.get_rect(center=rect.center)
             paused = True
             while paused:
                 for event in pygame.event.get():
@@ -328,19 +270,25 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
                             pygame.quit()
                             return
                         if event.key == pygame.K_r:
-                            if tracker:
-                                calibrate_tracker(tracker, screen)
+                            calibrate_tracker(tracker, screen)
                             paused = False
+                screen.fill((0, 0, 0))
+                screen.blit(text, text_rect)
+                pygame.display.flip()
                 time.sleep(0.1)
 
+    _run_validity_check(screen, subject, shown)
     pygame.quit()
 
 
+# ---------------------------------------------------------------------------
+# CLI entry point
+# ---------------------------------------------------------------------------
+
 def main(argv: List[str] | None = None) -> int:
-    """Command line entry point to run the experiment."""
-    _ = argv  # unused but kept for backward compatibility
-    subject_id, num_images, min_dur, max_dur = prompt_experiment_params()
-    run_experiment(subject_id, num_images, min_dur, max_dur)
+    _ = argv  # unused for now
+    subject, num, min_d, max_d = prompt_experiment_params()
+    run_experiment(subject, num, min_d, max_d)
     return 0
 
 
