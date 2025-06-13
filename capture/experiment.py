@@ -44,12 +44,12 @@ def calibrate_tracker(tracker: "tr.EyeTracker", screen: pygame.Surface) -> None:
 
 
 def _load_images() -> List[Path]:
-    """Load stimulus image file paths from default folders."""
+    """Load stimulus image file paths from the ``data/current_images`` folder."""
+    folder = Path("data/current_images")
     paths: List[Path] = []
-    for folder in [Path("data/current_images"), Path("data/control_images")]:
-        if folder.exists():
-            paths.extend(sorted(folder.glob("*.jpg")))
-            paths.extend(sorted(folder.glob("*.png")))
+    if folder.exists():
+        paths.extend(sorted(folder.glob("*.jpg")))
+        paths.extend(sorted(folder.glob("*.png")))
     return paths
 
 
@@ -64,41 +64,63 @@ def _write_samples(csv_path: Path, samples: List[Dict[str, float]]) -> None:
 
 
 def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
-    """Run the gaze recording experiment for a subject."""
-    if tr is None:
-        raise RuntimeError("tobii_research library is not available")
+    """Run the gaze recording experiment for a subject.
 
-    trackers = tr.find_all_eyetrackers()
-    if not trackers:
-        raise RuntimeError("No Tobii eye tracker found")
-    tracker = trackers[0]
+    If a Tobii eye tracker is available it will be used, otherwise the
+    experiment runs in a simulated mode that simply displays the images and
+    records timestamps without gaze coordinates.
+    """
+
+    tracker = None
+    if tr is not None:
+        try:
+            trackers = tr.find_all_eyetrackers()
+            if trackers:
+                tracker = trackers[0]
+        except Exception:  # pragma: no cover - fail gracefully without tracker
+            tracker = None
 
     pygame.init()
     screen = pygame.display.set_mode((1280, 720))
     pygame.mouse.set_visible(False)
 
-    calibrate_tracker(tracker, screen)
+    if tracker:
+        calibrate_tracker(tracker, screen)
+    else:
+        print("Running without eye tracker - demo mode")
 
     image_paths = _load_images()
-    output_dir = Path("data")
-    output_dir.mkdir(exist_ok=True)
+    output_dir = Path("data/csv")
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     for img_path in image_paths:
         gaze_samples: List[Dict[str, float]] = []
 
-        def gaze_callback(gaze_data: Dict) -> None:
-            left = gaze_data.get("left_gaze_point_on_display_area") or (None, None)
-            right = gaze_data.get("right_gaze_point_on_display_area") or (None, None)
-            gaze_samples.append({
-                "system_time_stamp": gaze_data.get("system_time_stamp"),
-                "device_time_stamp": gaze_data.get("device_time_stamp"),
-                "left_x": left[0],
-                "left_y": left[1],
-                "right_x": right[0],
-                "right_y": right[1],
-            })
+        if tracker:
+            def gaze_callback(gaze_data: Dict) -> None:
+                left = gaze_data.get("left_gaze_point_on_display_area") or (None, None)
+                right = gaze_data.get("right_gaze_point_on_display_area") or (None, None)
+                gaze_samples.append({
+                    "system_time_stamp": gaze_data.get("system_time_stamp"),
+                    "device_time_stamp": gaze_data.get("device_time_stamp"),
+                    "left_x": left[0],
+                    "left_y": left[1],
+                    "right_x": right[0],
+                    "right_y": right[1],
+                })
 
-        tracker.subscribe_to(tr.EYETRACKER_GAZE_DATA, gaze_callback, as_dictionary=True)
+            tracker.subscribe_to(tr.EYETRACKER_GAZE_DATA, gaze_callback, as_dictionary=True)
+        else:
+            # Fallback sample collection when no tracker is present
+            def gaze_callback() -> None:
+                gaze_samples.append({
+                    "system_time_stamp": time.time(),
+                    "device_time_stamp": None,
+                    "left_x": None,
+                    "left_y": None,
+                    "right_x": None,
+                    "right_y": None,
+                })
 
         img = pygame.image.load(str(img_path))
         img_rect = img.get_rect(center=screen.get_rect().center)
@@ -116,10 +138,15 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
             screen.blit(img, img_rect)
             pygame.display.flip()
 
+            # Collect a sample roughly every frame if no tracker
+            if not tracker:
+                gaze_callback()
+
             if time.time() - start >= duration_s:
                 running = False
 
-        tracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA, gaze_callback)
+        if tracker:
+            tracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA, gaze_callback)  # type: ignore
 
         csv_name = f"{subject_id}_{img_path.stem}.csv"
         _write_samples(output_dir / csv_name, gaze_samples)
