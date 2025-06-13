@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QTableView, QSplitter, QMessageBox, QGroupBox, QFormLayout,
     QCheckBox, QSpinBox, QDoubleSpinBox, QToolBar, QStatusBar,
     QInputDialog,
+
 )
 from PySide6.QtCore import Qt, QSortFilterProxyModel, Signal, Slot, QSize, QModelIndex
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QAction, QIcon
@@ -96,6 +97,31 @@ class DataTableModel(QStandardItemModel):
                 value = str(self.df.iloc[row, col])
                 item = QStandardItem(value)
                 self.setItem(row, col, item)
+
+
+class DataCollectionTab(QWidget):
+    """Tab for running new data collection sessions."""
+
+    start_clicked = Signal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+
+        form_layout = QFormLayout()
+        self.subject_edit = QLineEdit()
+        form_layout.addRow("Subject ID:", self.subject_edit)
+        layout.addLayout(form_layout)
+
+        self.start_btn = QPushButton("Start Study")
+        layout.addWidget(self.start_btn)
+        layout.addStretch(1)
+
+        self.start_btn.clicked.connect(self._emit_start)
+
+    def _emit_start(self):
+        subject_id = self.subject_edit.text().strip()
+        self.start_clicked.emit(subject_id)
 
 
 class MainWindow(QMainWindow):
@@ -189,10 +215,14 @@ class MainWindow(QMainWindow):
     
     def create_initial_tabs(self):
         """Create the initial empty tabs."""
+        # Data collection tab (inserted on the left)
+        self.data_collection_tab = DataCollectionTab()
+        self.data_collection_tab.start_clicked.connect(self.start_recording)
+
         # Timeseries tab
         self.timeseries_tab = PlotTab("Time Series")
         self.tabs.addTab(self.timeseries_tab, "Time Series")
-        
+
         # Heatmap tab
         self.heatmap_tab = PlotTab("Heatmap")
         self.tabs.addTab(self.heatmap_tab, "Heatmap")
@@ -208,6 +238,10 @@ class MainWindow(QMainWindow):
         # Create metrics tab
         self.metrics_tab = self.create_metrics_tab()
         self.tabs.addTab(self.metrics_tab, "Metrics")
+
+        # Insert data collection tab as the first tab and keep focus on analyses
+        self.tabs.insertTab(0, self.data_collection_tab, "Collect Data")
+        self.tabs.setCurrentWidget(self.timeseries_tab)
     
     def create_group_tab(self) -> QWidget:
         """Create the group analysis tab."""
@@ -687,6 +721,12 @@ class MainWindow(QMainWindow):
             self.group_plot.set_figure(fig)
         except Exception as e:
             QMessageBox.warning(self, "Plot Error", f"Could not plot group heatmap: {str(e)}")
+
+    @Slot(str)
+    def start_recording(self, subject_id: str):
+        """Start a new recording session for the given subject."""
+        # Placeholder implementation for upcoming recording routine
+        QMessageBox.information(self, "Start Study", f"Starting study for subject: {subject_id}")
     
     def export_results(self, output_dir: str):
         """Export results to the specified directory."""
