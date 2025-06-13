@@ -14,12 +14,14 @@ from matplotlib.backends.backend_qtagg import (
     NavigationToolbar2QT,
 )
 import json
+import subprocess
 
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout, 
-    QHBoxLayout, QLabel, QPushButton, QComboBox, QFileDialog, 
+    QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout,
+    QHBoxLayout, QLabel, QPushButton, QComboBox, QFileDialog,
     QTableView, QSplitter, QMessageBox, QGroupBox, QFormLayout,
-    QCheckBox, QSpinBox, QDoubleSpinBox, QToolBar, QStatusBar
+    QCheckBox, QSpinBox, QDoubleSpinBox, QToolBar, QStatusBar,
+    QInputDialog,
 )
 from PySide6.QtCore import Qt, QSortFilterProxyModel, Signal, Slot, QSize, QModelIndex
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QAction, QIcon
@@ -32,6 +34,7 @@ from analysis.viz import (
 )
 from analysis.metrics import all_metrics, transition_matrix
 import seaborn as sns
+from capture.experiment import run_experiment
 
 
 class PlotTab(QWidget):
@@ -148,7 +151,11 @@ class MainWindow(QMainWindow):
         self.load_action = QAction("Load Data", self)
         self.load_action.triggered.connect(self.load_data_dialog)
         self.toolbar.addAction(self.load_action)
-        
+
+        self.experiment_action = QAction("Run Experiment", self)
+        self.experiment_action.triggered.connect(self.launch_experiment)
+        self.toolbar.addAction(self.experiment_action)
+
         self.toolbar.addSeparator()
         
         self.export_action = QAction("Export Results", self)
@@ -341,6 +348,12 @@ class MainWindow(QMainWindow):
         
         if output_dir:
             self.export_results(output_dir)
+
+    def launch_experiment(self):
+        """Prompt for subject id and run the capture routine in a subprocess."""
+        subject_id, ok = QInputDialog.getText(self, "Run Experiment", "Subject ID:")
+        if ok and subject_id:
+            subprocess.Popen([sys.executable, "-m", "capture.experiment", subject_id])
     
     def load_data(self, file_paths: List[str]):
         """Load eye tracking data from the selected files."""
