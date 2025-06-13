@@ -1,16 +1,17 @@
 """Experiment runner used by the GUI data collection tab."""
 from __future__ import annotations
 
-from capture.experiment import run_experiment as capture_run_experiment
+import subprocess
+import sys
 
 
 def run_experiment(subject_id: str) -> None:
-    """Run the real experiment for ``subject_id``.
+    """Run the real experiment for ``subject_id`` in a separate process."""
 
-    This simply delegates to :func:`capture.experiment.run_experiment` so that
-    invoking the "Start Study" button from the GUI launches the full pygame
-    window and recording logic.
-    """
-
-    capture_run_experiment(subject_id)
+    # ``capture.experiment`` relies on pygame which fails when executed from a
+    # non-main thread. Running the module via ``subprocess`` avoids this
+    # limitation while still letting the GUI remain responsive.
+    subprocess.run(
+        [sys.executable, "-m", "capture.experiment", subject_id], check=True
+    )
 
