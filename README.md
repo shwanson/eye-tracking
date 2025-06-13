@@ -161,7 +161,8 @@ metrics, and visualizations to a directory of your choice.
 2. Switch to the **Collect Data** tab.
 3. Enter a subject ID and click **Start Study** to begin recording.
 4. Place the stimulus images you want to present in the `data/current_images`
-   directory. If the folder does not exist it will be created automatically.
-   When no images are found a blank window is shown for a few seconds.
+   directory and any control images in `data/control_images`. Both folders
+   will be created automatically. When no images are found a blank window is
+   shown for a few seconds.
 5. After the session, CSV files are saved in the `data` folder using the
    `SubjectID_StimulusID.csv` naming pattern.
