@@ -68,31 +68,34 @@ def _write_samples(csv_path: Path, samples: List[Dict[str, float]]) -> None:
         writer.writerows(samples)
 
 
+def find_tracker() -> "tr.EyeTracker":
+    """Return the first available Tobii eye tracker or raise an error."""
+    if tr is None:
+        raise RuntimeError("tobii_research library is not available")
+
+    trackers = tr.find_all_eyetrackers()
+    if not trackers:
+        raise RuntimeError("No eye trackers found")
+
+    tracker = trackers[0]
+    name = getattr(tracker, "device_name", str(tracker))
+    print(f"Found eye tracker: {name}")
+    return tracker
+
+
 def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
-    """Run the gaze recording experiment for a subject.
+    """Run the gaze recording experiment for a subject."""
 
-    If a Tobii eye tracker is available it will be used, otherwise the
-    experiment runs in a simulated mode that simply displays the images and
-    records timestamps without gaze coordinates.
-    """
-
-    tracker = None
-    if tr is not None:
-        try:
-            trackers = tr.find_all_eyetrackers()
-            if trackers:
-                tracker = trackers[0]
-        except Exception:  # pragma: no cover - fail gracefully without tracker
-            tracker = None
+    try:
+        tracker = find_tracker()
+    except RuntimeError as exc:
+        raise SystemExit(str(exc))
 
     pygame.init()
-    screen = pygame.display.set_mode((1280, 720))
+    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
     pygame.mouse.set_visible(False)
 
-    if tracker:
-        calibrate_tracker(tracker, screen)
-    else:
-        print("Running without eye tracker - demo mode")
+    calibrate_tracker(tracker, screen)
 
     image_paths = _load_images()
     output_dir = BASE_DIR / "data" / "csv"
