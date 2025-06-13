@@ -37,6 +37,8 @@ from analysis.metrics import all_metrics, transition_matrix
 import seaborn as sns
 from capture.experiment import run_experiment
 
+from .data_collection import DataCollectionTab
+
 
 class PlotTab(QWidget):
     """Widget for displaying matplotlib figures in a tab."""
@@ -239,9 +241,9 @@ class MainWindow(QMainWindow):
         self.metrics_tab = self.create_metrics_tab()
         self.tabs.addTab(self.metrics_tab, "Metrics")
 
-        # Insert data collection tab as the first tab and keep focus on analyses
-        self.tabs.insertTab(0, self.data_collection_tab, "Collect Data")
-        self.tabs.setCurrentWidget(self.timeseries_tab)
+        # Data collection tab
+        self.data_collection_tab = DataCollectionTab()
+        self.tabs.addTab(self.data_collection_tab, "Data Collection")
     
     def create_group_tab(self) -> QWidget:
         """Create the group analysis tab."""
