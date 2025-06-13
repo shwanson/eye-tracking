@@ -17,12 +17,30 @@ import json
 import subprocess
 
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout,
-    QHBoxLayout, QLabel, QPushButton, QComboBox, QFileDialog,
-    QTableView, QSplitter, QMessageBox, QGroupBox, QFormLayout,
-    QCheckBox, QSpinBox, QDoubleSpinBox, QToolBar, QStatusBar,
+    QApplication,
+    QMainWindow,
+    QTabWidget,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QComboBox,
+    QFileDialog,
+    QTableView,
+    QSplitter,
+    QMessageBox,
+    QGroupBox,
+    QFormLayout,
+    QCheckBox,
+    QSpinBox,
+    QDoubleSpinBox,
+    QToolBar,
+    QStatusBar,
     QInputDialog,
-
+    QDialog,
+    QDialogButtonBox,
+    QLineEdit,
 )
 from PySide6.QtCore import Qt, QSortFilterProxyModel, QSize, QModelIndex
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QAction, QIcon
@@ -356,10 +374,54 @@ class MainWindow(QMainWindow):
             self.export_results(output_dir)
 
     def launch_experiment(self):
-        """Prompt for subject id and run the capture routine in a subprocess."""
-        subject_id, ok = QInputDialog.getText(self, "Run Experiment", "Subject ID:")
-        if ok and subject_id:
-            subprocess.Popen([sys.executable, "-m", "capture.experiment", subject_id])
+        """Prompt for experiment parameters and run the capture routine."""
+
+        class ParamDialog(QDialog):
+            def __init__(self, parent=None) -> None:
+                super().__init__(parent)
+                self.setWindowTitle("Run Experiment")
+                layout = QFormLayout(self)
+                self.subject_edit = QLineEdit()
+                layout.addRow("Subject ID:", self.subject_edit)
+                self.num_spin = QSpinBox()
+                self.num_spin.setRange(1, 1000)
+                self.num_spin.setValue(1)
+                layout.addRow("Number of Images:", self.num_spin)
+                self.min_spin = QDoubleSpinBox()
+                self.min_spin.setRange(0.1, 60.0)
+                self.min_spin.setSingleStep(0.1)
+                self.min_spin.setValue(1.0)
+                layout.addRow("Min Duration (s):", self.min_spin)
+                self.max_spin = QDoubleSpinBox()
+                self.max_spin.setRange(0.1, 60.0)
+                self.max_spin.setSingleStep(0.1)
+                self.max_spin.setValue(3.0)
+                layout.addRow("Max Duration (s):", self.max_spin)
+                buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+                layout.addRow(buttons)
+                buttons.accepted.connect(self.accept)
+                buttons.rejected.connect(self.reject)
+
+        dlg = ParamDialog(self)
+        if dlg.exec() == QDialog.Accepted:
+            subject_id = dlg.subject_edit.text().strip()
+            num_images = dlg.num_spin.value()
+            min_dur = dlg.min_spin.value()
+            max_dur = dlg.max_spin.value()
+            if subject_id:
+                subprocess.Popen([
+                    sys.executable,
+                    "-m",
+                    "capture.experiment",
+                    "--subject",
+                    subject_id,
+                    "--num-images",
+                    str(num_images),
+                    "--min",
+                    str(min_dur),
+                    "--max",
+                    str(max_dur),
+                ])
     
     def load_data(self, file_paths: List[str]):
         """Load eye tracking data from the selected files."""
