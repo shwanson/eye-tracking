@@ -1,7 +1,9 @@
 """Experiment capture utilities using Tobii eye tracker."""
+
 from __future__ import annotations
 
 import csv
+import random
 import time
 from pathlib import Path
 from typing import Dict, List
@@ -10,6 +12,7 @@ from typing import Dict, List
 BASE_DIR = Path(__file__).resolve().parents[1]
 
 import pygame
+
 try:
     import tobii_research as tr
 except Exception:  # pragma: no cover - library not available in tests
@@ -58,6 +61,17 @@ def _load_images() -> List[Path]:
     return paths
 
 
+def _load_control_images() -> List[Path]:
+    """Load control image file paths from the ``data/control_images`` folder."""
+    folder = BASE_DIR / "data" / "control_images"
+    folder.mkdir(parents=True, exist_ok=True)
+
+    paths: List[Path] = []
+    paths.extend(sorted(folder.glob("*.jpg")))
+    paths.extend(sorted(folder.glob("*.png")))
+    return paths
+
+
 def _write_samples(csv_path: Path, samples: List[Dict[str, float]]) -> None:
     """Write gaze samples to CSV."""
     if not samples:
@@ -66,6 +80,62 @@ def _write_samples(csv_path: Path, samples: List[Dict[str, float]]) -> None:
         writer = csv.DictWriter(f, fieldnames=samples[0].keys())
         writer.writeheader()
         writer.writerows(samples)
+
+
+def _run_validity_check(
+    screen: pygame.Surface,
+    subject_id: str,
+    shown_images: List[Path],
+) -> None:
+    """Run the image recognition validity check after stimulus presentation."""
+
+    control = _load_control_images()
+    trials = [(p, "Y") for p in shown_images] + [(p, "N") for p in control]
+    random.shuffle(trials)
+
+    font = pygame.font.SysFont(None, 36)
+    results: List[Dict[str, str]] = []
+
+    for path, expected in trials:
+        img = pygame.image.load(str(path))
+        img_rect = img.get_rect(center=screen.get_rect().center)
+
+        answered = False
+        response = ""
+        while not answered:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_y:
+                        response = "Y"
+                        answered = True
+                    elif event.key == pygame.K_n:
+                        response = "N"
+                        answered = True
+                    elif event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        return
+
+            screen.fill((0, 0, 0))
+            screen.blit(img, img_rect)
+            prompt = font.render(
+                "Was this shown before? (Y=Yes, N=No)", True, (255, 255, 255)
+            )
+            prompt_rect = prompt.get_rect(
+                center=(screen.get_rect().centerx, screen.get_rect().height - 30)
+            )
+            screen.blit(prompt, prompt_rect)
+            pygame.display.flip()
+
+        results.append({"image": path.name, "expected": expected, "response": response})
+
+    output_dir = BASE_DIR / "data" / "csv"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = output_dir / f"P{subject_id}_Valididitätskontrolle.csv"
+    if results:
+        _write_samples(csv_path, results)
 
 
 def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
@@ -118,35 +188,50 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
         pygame.quit()
         return
 
-    for img_path in image_paths:
-        gaze_samples: List[Dict[str, float]] = []
+    # Dictionary to hold gaze samples for each image
+    gaze_data: Dict[str, List[Dict[str, float]]] = {p.stem: [] for p in image_paths}
+    current_image = ""
 
-        if tracker:
-            def gaze_callback(gaze_data: Dict) -> None:
-                left = gaze_data.get("left_gaze_point_on_display_area") or (None, None)
-                right = gaze_data.get("right_gaze_point_on_display_area") or (None, None)
-                gaze_samples.append({
-                    "system_time_stamp": gaze_data.get("system_time_stamp"),
-                    "device_time_stamp": gaze_data.get("device_time_stamp"),
+    if tracker:
+
+        def gaze_callback(gaze_data_raw: Dict) -> None:
+            if not current_image:
+                return
+            left = gaze_data_raw.get("left_gaze_point_on_display_area") or (None, None)
+            right = gaze_data_raw.get("right_gaze_point_on_display_area") or (
+                None,
+                None,
+            )
+            gaze_data[current_image].append(
+                {
+                    "system_time_stamp": gaze_data_raw.get("system_time_stamp"),
+                    "device_time_stamp": gaze_data_raw.get("device_time_stamp"),
                     "left_x": left[0],
                     "left_y": left[1],
                     "right_x": right[0],
                     "right_y": right[1],
-                })
+                }
+            )
 
-            tracker.subscribe_to(tr.EYETRACKER_GAZE_DATA, gaze_callback, as_dictionary=True)
-        else:
-            # Fallback sample collection when no tracker is present
-            def gaze_callback() -> None:
-                gaze_samples.append({
+        tracker.subscribe_to(tr.EYETRACKER_GAZE_DATA, gaze_callback, as_dictionary=True)
+    else:
+
+        def gaze_callback() -> None:
+            if not current_image:
+                return
+            gaze_data[current_image].append(
+                {
                     "system_time_stamp": time.time(),
                     "device_time_stamp": None,
                     "left_x": None,
                     "left_y": None,
                     "right_x": None,
                     "right_y": None,
-                })
+                }
+            )
 
+    for img_path in image_paths:
+        current_image = img_path.stem
         img = pygame.image.load(str(img_path))
         img_rect = img.get_rect(center=screen.get_rect().center)
 
@@ -163,18 +248,23 @@ def run_experiment(subject_id: str, duration_s: float = 5.0) -> None:
             screen.blit(img, img_rect)
             pygame.display.flip()
 
-            # Collect a sample roughly every frame if no tracker
             if not tracker:
                 gaze_callback()
 
             if time.time() - start >= duration_s:
                 running = False
 
-        if tracker:
-            tracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA, gaze_callback)  # type: ignore
+    current_image = ""
+    if tracker:
+        tracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA, gaze_callback)  # type: ignore
 
+    # Write gaze data to CSV files
+    for img_path in image_paths:
         csv_name = f"{subject_id}_{img_path.stem}.csv"
-        _write_samples(output_dir / csv_name, gaze_samples)
+        _write_samples(output_dir / csv_name, gaze_data[img_path.stem])
+
+    # Run validity check before closing
+    _run_validity_check(screen, subject_id, image_paths)
 
     pygame.quit()
 
@@ -193,4 +283,3 @@ def main(argv: List[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-
