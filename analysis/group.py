@@ -96,3 +96,42 @@ def compare_groups(df: pd.DataFrame, group_var: str, metric: str, ci: bool = Fal
         "groups": [str(groups)],
     })
     return result
+
+
+def mixed_effects_model(df: pd.DataFrame, formula: str, group_var: str) -> pd.DataFrame:
+    """Fit a mixed effects model and return a summary DataFrame.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input data containing variables for the model.
+    formula : str
+        Patsy formula describing the fixed effects part of the model.
+    group_var : str
+        Column name specifying the grouping variable for random effects.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame summarizing the fitted model parameters with columns
+        ``param``, ``coef``, ``stderr``, ``z`` and ``p_value``. An empty
+        DataFrame is returned if ``df`` is empty or the group column is
+        missing.
+    """
+
+    if df.empty or group_var not in df.columns:
+        return pd.DataFrame()
+
+    model = smf.mixedlm(formula, df, groups=df[group_var])
+    result = model.fit()
+
+    params = result.params
+    summary = pd.DataFrame({
+        "param": params.index,
+        "coef": params.values,
+        "stderr": result.bse,
+        "z": result.tvalues,
+        "p_value": result.pvalues,
+    })
+
+    return summary.reset_index(drop=True)
