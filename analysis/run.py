@@ -144,9 +144,11 @@ def run_analysis(
         try:
             if 'dwell_prop' in metrics_df.columns:
                 model_results = mixed_effects_model(
-                    fixations_df, formula="dwell_prop ~ subject", group_var="subject"
+                    metrics_df, formula="dwell_prop ~ subject", group_var="subject"
                 )
-                model_results.to_csv(group_dir / "mixed_effects_model.csv", index=False)
+                model_results.to_csv(
+                    group_dir / "mixed_effects_model.csv", index=False
+                )
         except Exception as e:
             logging.error(f"Error running mixed effects model: {e}")
     
