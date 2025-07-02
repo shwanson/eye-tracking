@@ -213,7 +213,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.timeseries_tab, "Time Series")
 
         # Heatmap tab
-        self.heatmap_tab = PlotTab("Heatmap")
+        self.heatmap_tab = self.create_heatmap_tab()
         self.tabs.addTab(self.heatmap_tab, "Heatmap")
         
         # Scanpath tab
@@ -228,8 +228,29 @@ class MainWindow(QMainWindow):
         self.metrics_tab = self.create_metrics_tab()
         self.tabs.addTab(self.metrics_tab, "Metrics")
 
+    def create_heatmap_tab(self) -> QWidget:
+        """Create the heatmap tab with sigma control."""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
 
-    
+        controls_layout = QHBoxLayout()
+        controls_layout.addWidget(QLabel("Sigma:"))
+        self.heatmap_sigma_spin = QSpinBox()
+        self.heatmap_sigma_spin.setRange(1, 30)
+        self.heatmap_sigma_spin.setValue(10)
+        self.heatmap_sigma_spin.valueChanged.connect(self.update_plots)
+        controls_layout.addWidget(self.heatmap_sigma_spin)
+        controls_layout.addStretch(1)
+        layout.addLayout(controls_layout)
+
+        self.heatmap_plot = PlotTab("Heatmap")
+        layout.addWidget(self.heatmap_plot)
+
+        return tab
+
+
+
+
     def create_group_tab(self) -> QWidget:
         """Create the group analysis tab."""
         tab = QWidget()
@@ -585,8 +606,9 @@ class MainWindow(QMainWindow):
             self.timeseries_tab.set_figure(fig)
             
             # Update heatmap plot
-            fig = plot_heatmap(raw_data)
-            self.heatmap_tab.set_figure(fig)
+            sigma = self.heatmap_sigma_spin.value()
+            fig = plot_heatmap(raw_data, sigma=sigma)
+            self.heatmap_plot.set_figure(fig)
             
             # Update scanpath plot
             print('DEBUG: Fixations DataFrame shape:', fixations.shape)
