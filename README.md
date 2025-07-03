@@ -146,6 +146,9 @@ In the **Group Analysis** tab pick a group variable (such as `subject` or
 **Run Analysis** to compute statistics and draw the group heatmap. After
 changing the number of bins or the smoothing sigma you can press **Refresh
 Plot** to redraw the heatmap without rerunning the statistics.
+You can also choose specific subjects or stimuli for each group using the
+**Select Group 1** and **Select Group 2** buttons. Leaving either selection empty
+will include all available data for that group.
 
 The **Metrics** tab visualizes metrics including `dwell_prop`, `ttf_ms`,
 `n_fixations`, and `transitions`. Choose the desired metric and optionally group

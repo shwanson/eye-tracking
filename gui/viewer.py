@@ -41,6 +41,8 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
 )
 from PySide6.QtCore import Qt, QSortFilterProxyModel, QSize, QModelIndex
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QAction, QIcon
@@ -132,7 +134,9 @@ class MainWindow(QMainWindow):
         self.metrics = None
         self.current_subject = None
         self.current_stimulus = None
-        
+        self.group1_items: List[str] = []
+        self.group2_items: List[str] = []
+
         # UI setup
         self.setup_ui()
     
@@ -250,7 +254,30 @@ class MainWindow(QMainWindow):
         for metric in ["dwell_prop", "ttf_ms", "n_fixations"]:
             self.metric_combo.addItem(metric)
         group_layout.addRow("Metric:", self.metric_combo)
-        
+
+        # Group selections
+        g1_widget = QWidget()
+        g1_layout = QHBoxLayout(g1_widget)
+        g1_layout.setContentsMargins(0, 0, 0, 0)
+        self.group1_btn = QPushButton("Select...")
+        self.group1_btn.clicked.connect(lambda: self.select_group_items(1))
+        self.group1_label = QLabel("All")
+        g1_layout.addWidget(self.group1_btn)
+        g1_layout.addWidget(self.group1_label)
+        group_layout.addRow("Group 1:", g1_widget)
+
+        g2_widget = QWidget()
+        g2_layout = QHBoxLayout(g2_widget)
+        g2_layout.setContentsMargins(0, 0, 0, 0)
+        self.group2_btn = QPushButton("Select...")
+        self.group2_btn.clicked.connect(lambda: self.select_group_items(2))
+        self.group2_label = QLabel("All")
+        g2_layout.addWidget(self.group2_btn)
+        g2_layout.addWidget(self.group2_label)
+        group_layout.addRow("Group 2:", g2_widget)
+
+        self.group_var_combo.currentIndexChanged.connect(self.on_group_var_changed)
+
         run_analysis_btn = QPushButton("Run Analysis")
         run_analysis_btn.clicked.connect(self.run_group_analysis)
         group_layout.addRow("", run_analysis_btn)
@@ -516,6 +543,54 @@ class MainWindow(QMainWindow):
         self.group_var_combo.addItem("stimulus")
         
         self.group_var_combo.blockSignals(False)
+
+    def on_group_var_changed(self, index: int):
+        """Reset group selections when the group variable changes."""
+        self.group1_items = []
+        self.group2_items = []
+        self.group1_label.setText("All")
+        self.group2_label.setText("All")
+
+    def multi_select_dialog(self, title: str, items: List[str], selected: List[str]) -> Optional[List[str]]:
+        """Show a dialog allowing multiple selections."""
+        dlg = QDialog(self)
+        dlg.setWindowTitle(title)
+        layout = QVBoxLayout(dlg)
+        list_widget = QListWidget()
+        list_widget.setSelectionMode(QListWidget.MultiSelection)
+        for it in items:
+            item = QListWidgetItem(str(it))
+            list_widget.addItem(item)
+            if it in selected:
+                item.setSelected(True)
+        layout.addWidget(list_widget)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(dlg.accept)
+        buttons.rejected.connect(dlg.reject)
+        layout.addWidget(buttons)
+        if dlg.exec() == QDialog.Accepted:
+            return [i.text() for i in list_widget.selectedItems()]
+        return None
+
+    def select_group_items(self, idx: int):
+        """Prompt user to choose items for the specified group."""
+        if self.raw_data is None:
+            return
+        group_var = self.group_var_combo.currentText()
+        if group_var == "None":
+            QMessageBox.warning(self, "No Group Variable", "Select a group variable first.")
+            return
+        values = sorted(self.raw_data[group_var].dropna().astype(str).unique())
+        current = self.group1_items if idx == 1 else self.group2_items
+        chosen = self.multi_select_dialog(f"Select {group_var} for Group {idx}", values, current)
+        if chosen is None:
+            return
+        if idx == 1:
+            self.group1_items = chosen
+            self.group1_label.setText(", ".join(chosen) if chosen else "All")
+        else:
+            self.group2_items = chosen
+            self.group2_label.setText(", ".join(chosen) if chosen else "All")
     
     def on_subject_changed(self, index: int):
         """Handle subject selection changed."""
@@ -682,22 +757,45 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Invalid Metric", f"Metric '{metric}' not found in data.")
             return
         df = df.dropna(subset=[group_var, metric])
+        if self.group1_items or self.group2_items:
+            selected = set(self.group1_items + self.group2_items)
+            df = df[df[group_var].astype(str).isin(selected)]
+            df['__group'] = np.nan
+            if self.group1_items:
+                df.loc[df[group_var].astype(str).isin(self.group1_items), '__group'] = 'Group 1'
+            if self.group2_items:
+                df.loc[df[group_var].astype(str).isin(self.group2_items), '__group'] = 'Group 2'
+            group_col = '__group'
+        else:
+            group_col = group_var
+
+        df = df.dropna(subset=[group_col])
         if df.empty:
             QMessageBox.warning(self, "No Data", "No data available for selected group and metric.")
             return
 
         # Aggregate by group
         from analysis.group import aggregate_by_group, compare_groups
-        agg = aggregate_by_group(df, group_var, [metric])
-        comp = compare_groups(df, group_var, metric, ci=True)
+        agg = aggregate_by_group(df, group_col, [metric])
+        comp = compare_groups(df, group_col, metric, ci=True)
 
         # Update results table with statistical comparison
         self.results_model.update_data(comp)
 
         # Plot group heatmap (if possible)
         from analysis.viz import plot_group_heatmap
-        group_labels = list(df[group_var].dropna().unique())
-        group_dfs = [self.fixations[self.fixations[group_var] == g] for g in group_labels]
+        if self.group1_items or self.group2_items:
+            group_labels = []
+            group_dfs = []
+            if self.group1_items:
+                group_labels.append('Group 1')
+                group_dfs.append(self.fixations[self.fixations[group_var].astype(str).isin(self.group1_items)])
+            if self.group2_items:
+                group_labels.append('Group 2')
+                group_dfs.append(self.fixations[self.fixations[group_var].astype(str).isin(self.group2_items)])
+        else:
+            group_labels = list(df[group_var].dropna().unique())
+            group_dfs = [self.fixations[self.fixations[group_var] == g] for g in group_labels]
         try:
             fig = plot_group_heatmap(group_dfs, group_labels, bins=bins, sigma=sigma)
             self.group_plot.set_figure(fig)
@@ -739,13 +837,26 @@ class MainWindow(QMainWindow):
                 return
 
         df = df.dropna(subset=[group_var])
+        if self.group1_items or self.group2_items:
+            selected = set(self.group1_items + self.group2_items)
+            df = df[df[group_var].astype(str).isin(selected)]
         if df.empty:
             QMessageBox.warning(self, "No Data", "No data available for selected group.")
             return
 
         from analysis.viz import plot_group_heatmap
-        group_labels = list(df[group_var].dropna().unique())
-        group_dfs = [self.fixations[self.fixations[group_var] == g] for g in group_labels]
+        if self.group1_items or self.group2_items:
+            group_labels = []
+            group_dfs = []
+            if self.group1_items:
+                group_labels.append('Group 1')
+                group_dfs.append(self.fixations[self.fixations[group_var].astype(str).isin(self.group1_items)])
+            if self.group2_items:
+                group_labels.append('Group 2')
+                group_dfs.append(self.fixations[self.fixations[group_var].astype(str).isin(self.group2_items)])
+        else:
+            group_labels = list(df[group_var].dropna().unique())
+            group_dfs = [self.fixations[self.fixations[group_var] == g] for g in group_labels]
 
         try:
             fig = plot_group_heatmap(group_dfs, group_labels, bins=bins, sigma=sigma)
