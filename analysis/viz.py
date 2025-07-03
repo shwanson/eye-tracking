@@ -43,10 +43,16 @@ def plot_gaze_timeseries(df: pd.DataFrame, fig: Optional[Figure] = None) -> Figu
     return fig
 
 
-def plot_heatmap(df: pd.DataFrame, fig: Optional[Figure] = None, 
-                bins: int = 200, sigma: int = 10,
-                screen_size: Tuple[int, int] = (1920, 1080),
-                cmap: str = 'viridis', alpha: float = 0.7) -> Figure:
+def plot_heatmap(
+    df: pd.DataFrame,
+    fig: Optional[Figure] = None,
+    bins: int = 200,
+    sigma: int = 10,
+    screen_size: Tuple[int, int] = (1920, 1080),
+    cmap: str = 'viridis',
+    alpha: float = 0.7,
+    background_image: Optional[str] = None,
+) -> Figure:
     """
     Plot gaze heatmap.
     
@@ -66,6 +72,8 @@ def plot_heatmap(df: pd.DataFrame, fig: Optional[Figure] = None,
         Colormap name, by default 'viridis'
     alpha : float, optional
         Heatmap transparency, by default 0.7
+    background_image : Optional[str], optional
+        Path to background image to show under the heatmap, by default None
     
     Returns:
     --------
@@ -82,6 +90,14 @@ def plot_heatmap(df: pd.DataFrame, fig: Optional[Figure] = None,
     
     # Create heatmap
     ax = fig.add_subplot(111)
+
+    # Add background image if provided
+    if background_image:
+        try:
+            img = plt.imread(background_image)
+            ax.imshow(img, extent=[0, screen_w, screen_h, 0])
+        except Exception as e:
+            print(f"Error loading background image: {e}")
     
     if not valid_data.empty:
         # Create 2D histogram
@@ -336,18 +352,19 @@ def save_all_visualizations(fixations: pd.DataFrame, metrics: pd.DataFrame,
     # 1. Scanpath
     if not filtered_fixations.empty:
         fig = plot_scanpath(
-            filtered_fixations, 
+            filtered_fixations,
             screen_size=screen_size,
-            background_image=background_image
+            background_image=background_image,
         )
         fig.savefig(output_path / f"{prefix}scanpath.png", dpi=300, bbox_inches='tight')
         plt.close(fig)
-    
+
     # 2. Heatmap
     if not filtered_fixations.empty:
         fig = plot_heatmap(
             filtered_fixations,
-            screen_size=screen_size
+            screen_size=screen_size,
+            background_image=background_image,
         )
         fig.savefig(output_path / f"{prefix}heatmap.png", dpi=300, bbox_inches='tight')
         plt.close(fig)
