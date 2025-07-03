@@ -132,6 +132,7 @@ class MainWindow(QMainWindow):
         self.metrics = None
         self.current_subject = None
         self.current_stimulus = None
+        self.background_images: Dict[str, str] = {}
         
         # UI setup
         self.setup_ui()
@@ -170,6 +171,10 @@ class MainWindow(QMainWindow):
         self.load_action = QAction("Load Data", self)
         self.load_action.triggered.connect(self.load_data_dialog)
         self.toolbar.addAction(self.load_action)
+
+        self.image_action = QAction("Load Images", self)
+        self.image_action.triggered.connect(self.load_image_dialog)
+        self.toolbar.addAction(self.image_action)
 
         self.experiment_action = QAction("Run Experiment", self)
         self.experiment_action.triggered.connect(self.launch_experiment)
@@ -376,6 +381,20 @@ class MainWindow(QMainWindow):
             file_paths = dialog.selectedFiles()
             if file_paths:
                 self.load_data(file_paths)
+
+    def load_image_dialog(self):
+        """Select images to use as backgrounds."""
+        dialog = QFileDialog()
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
+        dialog.setNameFilter(
+            "Image Files (*.png *.jpg *.jpeg *.bmp *.gif);;All Files (*)"
+        )
+        dialog.setDirectory(str(Path.cwd()))
+
+        if dialog.exec():
+            for path in dialog.selectedFiles():
+                stim_id = Path(path).stem
+                self.background_images[stim_id] = path
     
     def export_dialog(self):
         """Show dialog to export results."""
@@ -605,11 +624,16 @@ class MainWindow(QMainWindow):
             fig = plot_gaze_timeseries(raw_data)
             self.timeseries_tab.set_figure(fig)
             
+            # Determine background image for current stimulus
+            image_path = None
+            if self.current_stimulus:
+                image_path = self.background_images.get(str(self.current_stimulus))
+
             # Update heatmap plot
-            sigma = self.heatmap_sigma_spin.value()
-            fig = plot_heatmap(raw_data, sigma=sigma)
-            self.heatmap_plot.set_figure(fig)
-            
+            fig = plot_heatmap(raw_data, background_image=image_path)
+            self.heatmap_tab.set_figure(fig)
+   
+
             # Update scanpath plot
             print('DEBUG: Fixations DataFrame shape:', fixations.shape)
             print('DEBUG: Fixations columns:', fixations.columns.tolist())
@@ -623,7 +647,7 @@ class MainWindow(QMainWindow):
                 ax.set_title('No Scanpath Data')
                 self.scanpath_tab.set_figure(fig)
             else:
-                fig = plot_scanpath(fixations)
+                fig = plot_scanpath(fixations, background_image=image_path)
                 self.scanpath_tab.set_figure(fig)
             
             # Update metrics plot
@@ -803,14 +827,15 @@ class MainWindow(QMainWindow):
             
             # Calculate transition matrix
             transitions, _ = transition_matrix(fixations)
-            
+
             # Save visualizations
             viz_dir = output_path / "visualizations"
             save_all_visualizations(
                 fixations, filtered_metrics, viz_dir,
                 subject=self.current_subject,
                 stimulus=self.current_stimulus,
-                transition_matrix=transitions
+                background_image=self.background_images.get(str(self.current_stimulus)) if self.current_stimulus else None,
+                transition_matrix=transitions,
             )
             
             self.statusBar.showMessage(f"Results exported to {output_dir}")
