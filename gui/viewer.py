@@ -61,6 +61,7 @@ class PlotTab(QWidget):
         self.toolbar = NavigationToolbar2QT(self.canvas, self)
         self.layout.addWidget(self.canvas)
         self.layout.addWidget(self.toolbar)
+        self.canvas.draw()
 
 
 class DataTableModel(QStandardItemModel):
