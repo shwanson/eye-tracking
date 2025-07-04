@@ -113,11 +113,11 @@ def load_subject(path: Path, screen_size: Tuple[int, int] = (1920, 1080)) -> pd.
         df = _parse_coordinates(df)
         
         # Extract metadata from filename
-        parts = path.stem.split('_')
-        if len(parts) >= 2:
-            df['subject'] = parts[0]    # P01, P02, etc.
-            df['stimulus'] = parts[1]   # face01, face02, etc.
-        else:
+        try:
+            subject, stim = path.stem.split('_', 1)
+            df['subject'] = subject    # P01, P02, etc.
+            df['stimulus'] = stim      # face01, face02, etc.
+        except ValueError:
             # Fallback if filename doesn't match expected pattern
             df['subject'] = path.stem
             df['stimulus'] = 'unknown'
