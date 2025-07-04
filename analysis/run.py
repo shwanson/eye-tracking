@@ -5,9 +5,9 @@ This module provides a command-line interface to run the analysis pipeline.
 """
 import argparse
 import logging
-from pathlib import Path
 import json
-from typing import Optional, Dict, Any, List, Tuple
+from pathlib import Path
+from typing import Optional, Dict, Tuple
 
 import pandas as pd
 
