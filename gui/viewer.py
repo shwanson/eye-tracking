@@ -517,8 +517,15 @@ class MainWindow(QMainWindow):
             else:
                 print("Warning: timeseries_tab missing set_figure")
             
+            # Determine background image path if available
+            bg_img = None
+            if self.current_stimulus:
+                img_path = Path('data/current_images') / f"{self.current_stimulus}.jpg"
+                if img_path.exists():
+                    bg_img = str(img_path)
+
             # Update heatmap plot
-            fig = plot_heatmap(raw_data)
+            fig = plot_heatmap(raw_data, background_image=bg_img)
             if hasattr(self.heatmap_tab, "set_figure"):
                 self.heatmap_tab.set_figure(fig)
             else:
@@ -540,7 +547,7 @@ class MainWindow(QMainWindow):
                 else:
                     print("Warning: scanpath_tab missing set_figure")
             else:
-                fig = plot_scanpath(fixations)
+                fig = plot_scanpath(fixations, background_image=bg_img)
                 if hasattr(self.scanpath_tab, "set_figure"):
                     self.scanpath_tab.set_figure(fig)
                 else:
