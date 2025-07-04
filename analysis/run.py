@@ -78,7 +78,8 @@ def run_analysis(
     trial_durations_dict: Optional[Dict] = None,
     background_images: Optional[Dict] = None,
     generate_visualizations: bool = True,
-    screen_size: Tuple[int, int] = (1920, 1080)
+    screen_size: Tuple[int, int] = (1920, 1080),
+    image_size: Optional[Tuple[int, int]] = None,
 ) -> pd.DataFrame:
     """
     Run the analysis pipeline.
@@ -101,6 +102,9 @@ def run_analysis(
         Whether to generate visualizations, by default True
     screen_size : Tuple[int, int], optional
         Screen dimensions (width, height), by default (1920, 1080)
+    image_size : Optional[Tuple[int, int]], optional
+        Stimulus image dimensions (width, height). If provided the data is
+        centered within the screen dimensions, by default None
     
     Returns:
     --------
@@ -166,10 +170,11 @@ def run_analysis(
         
         # Group visualizations - all subjects, all stimuli
         save_all_visualizations(
-            fixations_df, metrics_df, 
-            viz_dir, 
+            fixations_df, metrics_df,
+            viz_dir,
             transition_matrix=transitions,
-            screen_size=screen_size
+            screen_size=screen_size,
+            image_size=image_size
         )
         
         # Individual subject visualizations
@@ -186,7 +191,8 @@ def run_analysis(
                 subject_dir,
                 subject=subject,
                 transition_matrix=transition_matrix(subj_fixations)[0],
-                screen_size=screen_size
+                screen_size=screen_size,
+                image_size=image_size
             )
             
             # Each stimulus for this subject
@@ -206,7 +212,8 @@ def run_analysis(
                         subject=subject,
                         stimulus=stimulus,
                         background_image=bg_img,
-                        screen_size=screen_size
+                        screen_size=screen_size,
+                        image_size=image_size
                     )
         
         # Stimulus visualizations (across subjects)
@@ -227,7 +234,8 @@ def run_analysis(
                 stimulus_dir,
                 stimulus=stimulus,
                 background_image=bg_img,
-                screen_size=screen_size
+                screen_size=screen_size,
+                image_size=image_size
             )
     
     return metrics_df
