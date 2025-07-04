@@ -1,4 +1,4 @@
-import os, re
+import re
 from pathlib import Path
 import pandas as pd, numpy as np
 import cv2

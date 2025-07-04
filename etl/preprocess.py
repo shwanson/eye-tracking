@@ -5,7 +5,7 @@ import logging
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Tuple
 
 
 def filter_quality(df: pd.DataFrame, confidence_threshold: float = 0.8) -> pd.DataFrame:

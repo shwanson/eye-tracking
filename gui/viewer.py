@@ -2,9 +2,8 @@
 Eye-tracking data viewer application.
 """
 import sys
-import os
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any, Union
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 import numpy as np
@@ -13,7 +12,6 @@ from matplotlib.backends.backend_qtagg import (
     FigureCanvasQTAgg as FigureCanvas,
     NavigationToolbar2QT,
 )
-import json
 import subprocess
 import logging
 
@@ -38,13 +36,12 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QToolBar,
     QStatusBar,
-    QInputDialog,
     QDialog,
     QDialogButtonBox,
     QLineEdit,
 )
-from PySide6.QtCore import Qt, QSortFilterProxyModel, QSize, QModelIndex
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QAction, QIcon
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QAction
 
 # Import ETL and analysis modules
 from etl.io import load_all, load_subject
@@ -742,7 +739,6 @@ class MainWindow(QMainWindow):
         self.results_model.update_data(comp)
 
         # Plot group heatmap (if possible)
-        from analysis.viz import plot_group_heatmap
         group_labels = list(df[group_var].dropna().unique())
         group_dfs = [self.fixations[self.fixations[group_var] == g] for g in group_labels]
         try:
@@ -790,10 +786,9 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "No Data", "No data available for selected group.")
             return
 
-        from analysis.viz import plot_group_heatmap
         group_labels = list(df[group_var].dropna().unique())
         group_dfs = [self.fixations[self.fixations[group_var] == g] for g in group_labels]
-
+        
         try:
             fig = plot_group_heatmap(group_dfs, group_labels, bins=bins, sigma=sigma)
             self.group_plot.set_figure(fig)
