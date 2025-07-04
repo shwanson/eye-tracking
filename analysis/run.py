@@ -78,7 +78,8 @@ def run_analysis(
     trial_durations_dict: Optional[Dict] = None,
     background_images: Optional[Dict] = None,
     generate_visualizations: bool = True,
-    screen_size: Tuple[int, int] = (1920, 1080)
+    screen_size: Tuple[int, int] = (1920, 1080),
+    image_size: Optional[Tuple[int, int]] = None,
 ) -> pd.DataFrame:
     """
     Run the analysis pipeline.
@@ -101,6 +102,8 @@ def run_analysis(
         Whether to generate visualizations, by default True
     screen_size : Tuple[int, int], optional
         Screen dimensions (width, height), by default (1920, 1080)
+    image_size : Optional[Tuple[int, int]], optional
+        Original stimulus size for visualization scaling.
     
     Returns:
     --------
@@ -166,10 +169,12 @@ def run_analysis(
         
         # Group visualizations - all subjects, all stimuli
         save_all_visualizations(
-            fixations_df, metrics_df, 
-            viz_dir, 
+            fixations_df,
+            metrics_df,
+            viz_dir,
             transition_matrix=transitions,
-            screen_size=screen_size
+            screen_size=screen_size,
+            image_size=image_size,
         )
         
         # Individual subject visualizations
@@ -186,7 +191,8 @@ def run_analysis(
                 subject_dir,
                 subject=subject,
                 transition_matrix=transition_matrix(subj_fixations)[0],
-                screen_size=screen_size
+                screen_size=screen_size,
+                image_size=image_size,
             )
             
             # Each stimulus for this subject
@@ -206,7 +212,8 @@ def run_analysis(
                         subject=subject,
                         stimulus=stimulus,
                         background_image=bg_img,
-                        screen_size=screen_size
+                        screen_size=screen_size,
+                        image_size=image_size,
                     )
         
         # Stimulus visualizations (across subjects)
@@ -227,7 +234,8 @@ def run_analysis(
                 stimulus_dir,
                 stimulus=stimulus,
                 background_image=bg_img,
-                screen_size=screen_size
+                screen_size=screen_size,
+                image_size=image_size,
             )
     
     return metrics_df
@@ -256,6 +264,10 @@ def main():
                        help="Screen width in pixels")
     parser.add_argument("--screen-height", type=int, default=1080,
                        help="Screen height in pixels")
+    parser.add_argument("--image-width", type=int,
+                       help="Original image width in pixels")
+    parser.add_argument("--image-height", type=int,
+                       help="Original image height in pixels")
     parser.add_argument("-v", "--verbose", action="count", default=0,
                        help="Increase verbosity (can be used multiple times)")
     
@@ -278,6 +290,10 @@ def main():
                 background_images = json.load(f)
         
         # Run analysis
+        img_size = None
+        if args.image_width and args.image_height:
+            img_size = (args.image_width, args.image_height)
+
         run_analysis(
             fixations_df=fixations_df,
             output_dir=args.output_dir,
@@ -286,7 +302,8 @@ def main():
             trial_durations_dict=trial_durations_dict,
             background_images=background_images,
             generate_visualizations=not args.no_visualizations,
-            screen_size=(args.screen_width, args.screen_height)
+            screen_size=(args.screen_width, args.screen_height),
+            image_size=img_size,
         )
         
         logging.info("Analysis pipeline completed successfully")
