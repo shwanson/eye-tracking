@@ -1,0 +1,26 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Large data outputs
+# Ignore generated heatmap overlays and other bulky directories
+/data/heatmap_overlays/
+/data/current_images/
+/data/split_csv/
+/data/archive/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.log
+*.tmp
+*.temp
+.cache/
+.eggs/
+
+# Misc
+.DS_Store
+
