@@ -96,3 +96,33 @@ def compare_groups(df: pd.DataFrame, group_var: str, metric: str, ci: bool = Fal
         "groups": [str(groups)],
     })
     return result
+
+
+def mixed_effects_model(df: pd.DataFrame, formula: str, group_var: str) -> pd.DataFrame:
+    """Fit a mixed effects model and return the coefficients table.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input data.
+    formula : str
+        Model formula passed to ``statsmodels``.
+    group_var : str
+        Column containing group identifiers for random effects.
+
+    Returns
+    -------
+    pd.DataFrame
+        Table of model coefficients with standard errors and p-values.
+    """
+    if group_var not in df.columns:
+        raise ValueError(f"Group variable '{group_var}' not in DataFrame")
+
+    model = smf.mixedlm(formula, df, groups=df[group_var])
+    result = model.fit()
+
+    params = result.params.rename("estimate")
+    se = result.bse.rename("std_err")
+    pvals = result.pvalues.rename("p_value")
+    table = pd.concat([params, se, pvals], axis=1).reset_index().rename(columns={"index": "term"})
+    return table
