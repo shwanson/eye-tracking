@@ -1,6 +1,8 @@
 """
 Eye tracking data preprocessing, filtering, and fixation detection.
 """
+import logging
+
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Any, Optional, Tuple
@@ -28,7 +30,7 @@ def filter_quality(df: pd.DataFrame, confidence_threshold: float = 0.8) -> pd.Da
         return df[df['confidence'] >= confidence_threshold].copy()
     else:
         # If validity columns not available, return original data
-        print("Warning: Validity columns not found. Data not filtered.")
+        logging.warning("Validity columns not found. Data not filtered.")
         return df
 
 
@@ -83,8 +85,8 @@ def detect_fixations(df: pd.DataFrame, max_dispersion: float = 0.04,
     pd.DataFrame
         DataFrame with detected fixations
     """
-    print('DEBUG: detect_fixations input shape:', df.shape)
-    print('DEBUG: detect_fixations input columns:', df.columns.tolist())
+    logging.debug('detect_fixations input shape: %s', df.shape)
+    logging.debug('detect_fixations input columns: %s', df.columns.tolist())
     fixations = []
     window = []
     start_t = None
@@ -95,8 +97,8 @@ def detect_fixations(df: pd.DataFrame, max_dispersion: float = 0.04,
     # Skip rows marked as blinks if the column exists
     if 'is_blink' in df.columns:
         df = df[~df['is_blink']]
-    print('DEBUG: detect_fixations after blink filter shape:', df.shape)
-    print('DEBUG: detect_fixations after blink filter columns:', df.columns.tolist())
+    logging.debug('detect_fixations after blink filter shape: %s', df.shape)
+    logging.debug('detect_fixations after blink filter columns: %s', df.columns.tolist())
     
     for _, row in df.iterrows():
         # Skip NaN coordinates
@@ -169,8 +171,8 @@ def detect_fixations(df: pd.DataFrame, max_dispersion: float = 0.04,
             fixations.append(fix)
     
     result = pd.DataFrame(fixations)
-    print('DEBUG: detect_fixations output shape:', result.shape)
-    print('DEBUG: detect_fixations output columns:', result.columns.tolist())
+    logging.debug('detect_fixations output shape: %s', result.shape)
+    logging.debug('detect_fixations output columns: %s', result.columns.tolist())
     return result
 
 
@@ -206,17 +208,17 @@ def preprocess_pipeline(df: pd.DataFrame,
     Tuple[pd.DataFrame, pd.DataFrame]
         Tuple of (processed_data, fixations)
     """
-    print('DEBUG: preprocess_pipeline input shape:', df.shape)
-    print('DEBUG: preprocess_pipeline input columns:', df.columns.tolist())
+    logging.debug('preprocess_pipeline input shape: %s', df.shape)
+    logging.debug('preprocess_pipeline input columns: %s', df.columns.tolist())
     # Filter by quality
     filtered_df = filter_quality(df, confidence_threshold)
-    print('DEBUG: After filter_quality shape:', filtered_df.shape)
-    print('DEBUG: After filter_quality columns:', filtered_df.columns.tolist())
+    logging.debug('After filter_quality shape: %s', filtered_df.shape)
+    logging.debug('After filter_quality columns: %s', filtered_df.columns.tolist())
     # Detect blinks
     if detect_blinks_flag:
         filtered_df = detect_blinks(filtered_df, max_gap_ms)
-        print('DEBUG: After detect_blinks shape:', filtered_df.shape)
-        print('DEBUG: After detect_blinks columns:', filtered_df.columns.tolist())
+        logging.debug('After detect_blinks shape: %s', filtered_df.shape)
+        logging.debug('After detect_blinks columns: %s', filtered_df.columns.tolist())
     # Detect fixations PER SUBJECT/STIMULUS
     fixations_df = None
     if detect_fixations_flag:
@@ -231,6 +233,6 @@ def preprocess_pipeline(df: pd.DataFrame,
             fixations_df = pd.concat(fixations_list, ignore_index=True)
         else:
             fixations_df = pd.DataFrame(columns=['start_s', 'end_s', 'duration_s', 'x', 'y', 'x_px', 'y_px', 'subject', 'stimulus'])
-        print('DEBUG: After detect_fixations shape:', fixations_df.shape if fixations_df is not None else None)
-        print('DEBUG: After detect_fixations columns:', fixations_df.columns.tolist() if fixations_df is not None else None)
+        logging.debug('After detect_fixations shape: %s', fixations_df.shape if fixations_df is not None else None)
+        logging.debug('After detect_fixations columns: %s', fixations_df.columns.tolist() if fixations_df is not None else None)
     return filtered_df, fixations_df 
