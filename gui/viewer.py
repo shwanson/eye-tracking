@@ -4,6 +4,7 @@ Eye-tracking data viewer application.
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+import re
 
 import pandas as pd
 import numpy as np
@@ -51,6 +52,18 @@ from analysis.viz import (
 )
 from analysis.metrics import all_metrics, transition_matrix
 import seaborn as sns
+
+
+def extract_stimulus_id(filename: str) -> str:
+    """Return the stimulus ID extracted from an image filename."""
+    base = Path(filename).stem
+    match = re.search(r"id\d+", base, re.IGNORECASE)
+    if match:
+        return match.group(0)
+    for sep in ["_", "-"]:
+        if sep in base:
+            return base.split(sep)[0]
+    return base
 
 
 
@@ -391,7 +404,7 @@ class MainWindow(QMainWindow):
 
         if dialog.exec():
             for path in dialog.selectedFiles():
-                stim_id = Path(path).stem
+                stim_id = extract_stimulus_id(path)
                 self.background_images[stim_id] = path
     
     def export_dialog(self):
