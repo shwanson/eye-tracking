@@ -142,8 +142,9 @@ filters. Selecting a subject or stimulus updates the plots for that subset, or
 choose **All** to view everything.
 
 The **Load Images** button lets you associate stimulus IDs with image files.
-The filename (without extension) is used as the stimulus ID. When a matching
-image is available the heatmap and scanpath views display it as a background.
+The application now extracts the ID from the filename, so additional text after
+the ID is allowed (e.g. `id081_person.jpg`). When a matching image is available
+the heatmap and scanpath views display it as a background.
 
 In the **Group Analysis** tab pick a group variable (such as `subject` or
 `stimulus`) and a metric (`dwell_prop`, `ttf_ms`, or `n_fixations`). Click
