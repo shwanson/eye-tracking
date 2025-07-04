@@ -10,6 +10,33 @@ from typing import List, Optional, Tuple
 from pathlib import Path
 
 
+def _to_image_coords(
+    df: pd.DataFrame,
+    screen_size: Tuple[int, int],
+    image_size: Tuple[int, int],
+) -> pd.DataFrame:
+    """Convert screen pixel coordinates to original image coordinates."""
+    screen_w, screen_h = screen_size
+    img_w, img_h = image_size
+
+    scale = min(screen_w / img_w, screen_h / img_h)
+    disp_w = img_w * scale
+    disp_h = img_h * scale
+    margin_x = (screen_w - disp_w) / 2
+    margin_y = (screen_h - disp_h) / 2
+
+    out = df.copy()
+    out["x_img"] = (out["x_px"] - margin_x) / scale
+    out["y_img"] = (out["y_px"] - margin_y) / scale
+
+    mask = (
+        (out["x_img"] >= 0)
+        & (out["x_img"] <= img_w)
+        & (out["y_img"] >= 0)
+        & (out["y_img"] <= img_h)
+    )
+    return out[mask]
+
 def plot_gaze_timeseries(df: pd.DataFrame, fig: Optional[Figure] = None) -> Figure:
     """
     Plot gaze X/Y coordinates over time.
@@ -110,6 +137,12 @@ def plot_heatmap(
             ax.imshow(img, extent=[0, img_w, img_h, 0])
         except Exception as e:
             print(f"Error loading background image: {e}")
+
+    if image_size is not None:
+        valid_data = _to_image_coords(valid_data, screen_size, image_size)
+        x_col, y_col = 'x_img', 'y_img'
+    else:
+        x_col, y_col = 'x_px', 'y_px'
     
     if not valid_data.empty:
         # Create 2D histogram
@@ -320,7 +353,7 @@ def plot_scanpath(
 
     if not valid_data.empty:
         # Plot raw gaze trajectory
-        ax.plot(valid_data['x_px'], valid_data['y_px'], '-', alpha=0.5, linewidth=1, color='blue')
+        ax.plot(valid_data[x_col], valid_data[y_col], '-', alpha=0.5, linewidth=1, color='blue')
         
         # Plot fixations if requested
         if show_fixations and 'duration_s' in valid_data.columns:
@@ -331,7 +364,7 @@ def plot_scanpath(
                 sizes = fixations['duration_s'] * 100
                 
                 ax.scatter(
-                    fixations['x_px'], fixations['y_px'],
+                    fixations[x_col], fixations[y_col],
                     s=sizes, alpha=0.6, edgecolors='black', color='red'
                 )
     

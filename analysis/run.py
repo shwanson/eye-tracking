@@ -105,6 +105,7 @@ def run_analysis(
     image_size : Optional[Tuple[int, int]], optional
         Stimulus image dimensions (width, height). If provided the data is
         centered within the screen dimensions, by default None
+
     
     Returns:
     --------
@@ -264,6 +265,10 @@ def main():
                        help="Screen width in pixels")
     parser.add_argument("--screen-height", type=int, default=1080,
                        help="Screen height in pixels")
+    parser.add_argument("--image-width", type=int,
+                       help="Original image width in pixels")
+    parser.add_argument("--image-height", type=int,
+                       help="Original image height in pixels")
     parser.add_argument("-v", "--verbose", action="count", default=0,
                        help="Increase verbosity (can be used multiple times)")
     
@@ -286,6 +291,10 @@ def main():
                 background_images = json.load(f)
         
         # Run analysis
+        img_size = None
+        if args.image_width and args.image_height:
+            img_size = (args.image_width, args.image_height)
+
         run_analysis(
             fixations_df=fixations_df,
             output_dir=args.output_dir,
@@ -294,7 +303,8 @@ def main():
             trial_durations_dict=trial_durations_dict,
             background_images=background_images,
             generate_visualizations=not args.no_visualizations,
-            screen_size=(args.screen_width, args.screen_height)
+            screen_size=(args.screen_width, args.screen_height),
+            image_size=img_size,
         )
         
         logging.info("Analysis pipeline completed successfully")
