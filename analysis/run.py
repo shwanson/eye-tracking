@@ -103,7 +103,9 @@ def run_analysis(
     screen_size : Tuple[int, int], optional
         Screen dimensions (width, height), by default (1920, 1080)
     image_size : Optional[Tuple[int, int]], optional
-        Original stimulus size for visualization scaling.
+        Stimulus image dimensions (width, height). If provided the data is
+        centered within the screen dimensions, by default None
+
     
     Returns:
     --------
@@ -169,12 +171,11 @@ def run_analysis(
         
         # Group visualizations - all subjects, all stimuli
         save_all_visualizations(
-            fixations_df,
-            metrics_df,
+            fixations_df, metrics_df,
             viz_dir,
             transition_matrix=transitions,
             screen_size=screen_size,
-            image_size=image_size,
+            image_size=image_size
         )
         
         # Individual subject visualizations
@@ -192,7 +193,7 @@ def run_analysis(
                 subject=subject,
                 transition_matrix=transition_matrix(subj_fixations)[0],
                 screen_size=screen_size,
-                image_size=image_size,
+                image_size=image_size
             )
             
             # Each stimulus for this subject
@@ -213,7 +214,7 @@ def run_analysis(
                         stimulus=stimulus,
                         background_image=bg_img,
                         screen_size=screen_size,
-                        image_size=image_size,
+                        image_size=image_size
                     )
         
         # Stimulus visualizations (across subjects)
@@ -235,7 +236,7 @@ def run_analysis(
                 stimulus=stimulus,
                 background_image=bg_img,
                 screen_size=screen_size,
-                image_size=image_size,
+                image_size=image_size
             )
     
     return metrics_df

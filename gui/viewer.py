@@ -144,6 +144,12 @@ class MainWindow(QMainWindow):
         self.current_subject = None
         self.current_stimulus = None
         self.background_images: Dict[str, str] = {}
+
+        # Display settings
+        self.screen_width = 1920
+        self.screen_height = 1080
+        self.image_width = 800
+        self.image_height = 800
         
         # UI setup
         self.setup_ui()
@@ -192,7 +198,13 @@ class MainWindow(QMainWindow):
         self.toolbar.addAction(self.experiment_action)
 
         self.toolbar.addSeparator()
-        
+
+        self.settings_action = QAction("Settings", self)
+        self.settings_action.triggered.connect(self.open_settings_dialog)
+        self.toolbar.addAction(self.settings_action)
+
+        self.toolbar.addSeparator()
+
         self.export_action = QAction("Export Results", self)
         self.export_action.triggered.connect(self.export_dialog)
         self.toolbar.addAction(self.export_action)
@@ -406,6 +418,44 @@ class MainWindow(QMainWindow):
             for path in dialog.selectedFiles():
                 stim_id = extract_stimulus_id(path)
                 self.background_images[stim_id] = path
+
+    def open_settings_dialog(self):
+        """Dialog for adjusting display settings."""
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Display Settings")
+        layout = QFormLayout(dlg)
+
+        sw_spin = QSpinBox()
+        sw_spin.setRange(100, 10000)
+        sw_spin.setValue(self.screen_width)
+        layout.addRow("Screen Width:", sw_spin)
+
+        sh_spin = QSpinBox()
+        sh_spin.setRange(100, 10000)
+        sh_spin.setValue(self.screen_height)
+        layout.addRow("Screen Height:", sh_spin)
+
+        iw_spin = QSpinBox()
+        iw_spin.setRange(100, 10000)
+        iw_spin.setValue(self.image_width)
+        layout.addRow("Image Width:", iw_spin)
+
+        ih_spin = QSpinBox()
+        ih_spin.setRange(100, 10000)
+        ih_spin.setValue(self.image_height)
+        layout.addRow("Image Height:", ih_spin)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        layout.addRow(buttons)
+        buttons.accepted.connect(dlg.accept)
+        buttons.rejected.connect(dlg.reject)
+
+        if dlg.exec() == QDialog.Accepted:
+            self.screen_width = sw_spin.value()
+            self.screen_height = sh_spin.value()
+            self.image_width = iw_spin.value()
+            self.image_height = ih_spin.value()
+            self.update_plots()
     
     def export_dialog(self):
         """Show dialog to export results."""
@@ -641,7 +691,12 @@ class MainWindow(QMainWindow):
                 image_path = self.background_images.get(str(self.current_stimulus))
 
             # Update heatmap plot
-            fig = plot_heatmap(raw_data, background_image=image_path)
+            fig = plot_heatmap(
+                raw_data,
+                screen_size=(self.screen_width, self.screen_height),
+                image_size=(self.image_width, self.image_height),
+                background_image=image_path,
+            )
             self.heatmap_plot.set_figure(fig)
    
 
@@ -658,7 +713,12 @@ class MainWindow(QMainWindow):
                 ax.set_title('No Scanpath Data')
                 self.scanpath_tab.set_figure(fig)
             else:
-                fig = plot_scanpath(fixations, background_image=image_path)
+                fig = plot_scanpath(
+                    fixations,
+                    screen_size=(self.screen_width, self.screen_height),
+                    image_size=(self.image_width, self.image_height),
+                    background_image=image_path,
+                )
                 self.scanpath_tab.set_figure(fig)
             
             # Update metrics plot
@@ -755,7 +815,14 @@ class MainWindow(QMainWindow):
         group_labels = list(df[group_var].dropna().unique())
         group_dfs = [self.fixations[self.fixations[group_var] == g] for g in group_labels]
         try:
-            fig = plot_group_heatmap(group_dfs, group_labels, bins=bins, sigma=sigma)
+            fig = plot_group_heatmap(
+                group_dfs,
+                group_labels,
+                bins=bins,
+                sigma=sigma,
+                screen_size=(self.screen_width, self.screen_height),
+                image_size=(self.image_width, self.image_height),
+            )
             self.group_plot.set_figure(fig)
         except Exception as e:
             QMessageBox.warning(self, "Plot Error", f"Could not plot group heatmap: {str(e)}")
@@ -803,7 +870,14 @@ class MainWindow(QMainWindow):
         group_dfs = [self.fixations[self.fixations[group_var] == g] for g in group_labels]
         
         try:
-            fig = plot_group_heatmap(group_dfs, group_labels, bins=bins, sigma=sigma)
+            fig = plot_group_heatmap(
+                group_dfs,
+                group_labels,
+                bins=bins,
+                sigma=sigma,
+                screen_size=(self.screen_width, self.screen_height),
+                image_size=(self.image_width, self.image_height),
+            )
             self.group_plot.set_figure(fig)
         except Exception as e:
             QMessageBox.warning(self, "Plot Error", f"Could not plot group heatmap: {str(e)}")
@@ -845,6 +919,8 @@ class MainWindow(QMainWindow):
                 stimulus=self.current_stimulus,
                 background_image=self.background_images.get(str(self.current_stimulus)) if self.current_stimulus else None,
                 transition_matrix=transitions,
+                screen_size=(self.screen_width, self.screen_height),
+                image_size=(self.image_width, self.image_height),
             )
             
             self.statusBar.showMessage(f"Results exported to {output_dir}")

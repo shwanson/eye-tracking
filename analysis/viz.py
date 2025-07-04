@@ -94,8 +94,8 @@ def plot_heatmap(
     screen_size : Tuple[int, int], optional
         Screen dimensions (width, height), by default (1920, 1080)
     image_size : Optional[Tuple[int, int]], optional
-        Original stimulus dimensions. If provided, coordinates are converted
-        so the heatmap aligns with the unscaled image.
+        Stimulus image dimensions (width, height). If provided the data is
+        centered within the screen dimensions, by default None
     cmap : str, optional
         Colormap name, by default 'viridis'
     alpha : float, optional
@@ -112,9 +112,20 @@ def plot_heatmap(
         fig = plt.figure(figsize=(12, 8))
     
     screen_w, screen_h = screen_size
+    img_w, img_h = image_size if image_size else screen_size
+    offset_x = (screen_w - img_w) / 2 if image_size else 0
+    offset_y = (screen_h - img_h) / 2 if image_size else 0
     
     # Filter for valid coordinates
     valid_data = df.dropna(subset=['x_px', 'y_px'])
+    if image_size:
+        valid_data = valid_data.copy()
+        valid_data['x_px'] = valid_data['x_px'] - offset_x
+        valid_data['y_px'] = valid_data['y_px'] - offset_y
+        valid_data = valid_data[
+            (valid_data['x_px'] >= 0) & (valid_data['x_px'] <= img_w) &
+            (valid_data['y_px'] >= 0) & (valid_data['y_px'] <= img_h)
+        ]
     
     # Create heatmap
     ax = fig.add_subplot(111)
@@ -136,7 +147,7 @@ def plot_heatmap(
     if not valid_data.empty:
         # Create 2D histogram
         hist, x_edges, y_edges = np.histogram2d(
-            valid_data[x_col], valid_data[y_col],
+            valid_data['x_px'], valid_data['y_px'],
             bins=bins, range=[[0, img_w], [0, img_h]]
         )
         
@@ -149,7 +160,8 @@ def plot_heatmap(
         
         # Plot heatmap
         im = ax.imshow(
-            heat.T, extent=[0, img_w, img_h, 0], cmap=cmap, alpha=alpha
+            heat.T, extent=[0, img_w, img_h, 0],
+            cmap=cmap, alpha=alpha
         )
         
         # Add colorbar
@@ -170,7 +182,7 @@ def plot_group_heatmap(
     sigma: int = 10,
     screen_size: Tuple[int, int] = (1920, 1080),
     image_size: Optional[Tuple[int, int]] = None,
-    cmap: str = 'viridis',
+    cmap: str = 'viridis'
 ) -> Figure:
     """
     Plot heatmaps for multiple groups.
@@ -190,7 +202,8 @@ def plot_group_heatmap(
     screen_size : Tuple[int, int], optional
         Screen dimensions (width, height), by default (1920, 1080)
     image_size : Optional[Tuple[int, int]], optional
-        Original stimulus dimensions for aligning heatmaps.
+        Stimulus image dimensions (width, height). If provided the data is
+        centered within the screen dimensions, by default None
     cmap : str, optional
         Colormap name, by default 'viridis'
     
@@ -207,23 +220,29 @@ def plot_group_heatmap(
         raise ValueError("Number of DataFrames must match number of labels")
     
     screen_w, screen_h = screen_size
-    
+    img_w, img_h = image_size if image_size else screen_size
+    offset_x = (screen_w - img_w) / 2 if image_size else 0
+    offset_y = (screen_h - img_h) / 2 if image_size else 0
+
     # Create heatmaps for each group
     heatmaps = []
     
     for i, df in enumerate(dfs):
         # Filter for valid coordinates
         valid_data = df.dropna(subset=['x_px', 'y_px'])
-        if image_size is not None:
-            valid_data = _to_image_coords(valid_data, screen_size, image_size)
-            x_col, y_col = 'x_img', 'y_img'
-        else:
-            x_col, y_col = 'x_px', 'y_px'
-
+        if image_size:
+            valid_data = valid_data.copy()
+            valid_data['x_px'] = valid_data['x_px'] - offset_x
+            valid_data['y_px'] = valid_data['y_px'] - offset_y
+            valid_data = valid_data[
+                (valid_data['x_px'] >= 0) & (valid_data['x_px'] <= img_w) &
+                (valid_data['y_px'] >= 0) & (valid_data['y_px'] <= img_h)
+            ]
+        
         if not valid_data.empty:
             # Create 2D histogram
             hist, x_edges, y_edges = np.histogram2d(
-                valid_data[x_col], valid_data[y_col],
+                valid_data['x_px'], valid_data['y_px'],
                 bins=bins, range=[[0, img_w], [0, img_h]]
             )
             
@@ -246,9 +265,8 @@ def plot_group_heatmap(
     for i, (heat, label) in enumerate(zip(heatmaps, labels)):
         ax = fig.add_subplot(n_rows, n_cols, i+1)
         im = ax.imshow(
-            heat.T,
-            extent=[0, img_w, img_h, 0],
-            cmap=cmap,
+            heat.T, extent=[0, img_w, img_h, 0],
+            cmap=cmap
         )
         plt.colorbar(im, ax=ax, label='Density')
         ax.set_title(label)
@@ -260,8 +278,7 @@ def plot_group_heatmap(
         ax = fig.add_subplot(n_rows, n_cols, 3)
         diff = heatmaps[0] - heatmaps[1]
         im = ax.imshow(
-            diff.T,
-            extent=[0, img_w, img_h, 0],
+            diff.T, extent=[0, img_w, img_h, 0],
             cmap='coolwarm'
         )
         plt.colorbar(im, ax=ax, label='Difference')
@@ -294,7 +311,8 @@ def plot_scanpath(
     screen_size : Tuple[int, int], optional
         Screen dimensions (width, height), by default (1920, 1080)
     image_size : Optional[Tuple[int, int]], optional
-        Original stimulus size used to transform coordinates.
+        Stimulus image dimensions (width, height). If provided the data is
+        centered within the screen dimensions, by default None
     show_fixations : bool, optional
         Whether to show fixations as circles, by default True
     min_duration_s : float, optional
@@ -324,12 +342,15 @@ def plot_scanpath(
     
     # Filter for valid coordinates
     valid_data = df.dropna(subset=['x_px', 'y_px'])
-    if image_size is not None:
-        valid_data = _to_image_coords(valid_data, screen_size, image_size)
-        x_col, y_col = 'x_img', 'y_img'
-    else:
-        x_col, y_col = 'x_px', 'y_px'
-    
+    if image_size:
+        valid_data = valid_data.copy()
+        valid_data['x_px'] = valid_data['x_px'] - offset_x
+        valid_data['y_px'] = valid_data['y_px'] - offset_y
+        valid_data = valid_data[
+            (valid_data['x_px'] >= 0) & (valid_data['x_px'] <= img_w) &
+            (valid_data['y_px'] >= 0) & (valid_data['y_px'] <= img_h)
+        ]
+
     if not valid_data.empty:
         # Plot raw gaze trajectory
         ax.plot(valid_data[x_col], valid_data[y_col], '-', alpha=0.5, linewidth=1, color='blue')
@@ -357,17 +378,13 @@ def plot_scanpath(
     return fig
 
 
-def save_all_visualizations(
-    fixations: pd.DataFrame,
-    metrics: pd.DataFrame,
-    output_dir: str,
-    subject: Optional[str] = None,
-    stimulus: Optional[str] = None,
-    screen_size: Tuple[int, int] = (1920, 1080),
-    image_size: Optional[Tuple[int, int]] = None,
-    background_image: Optional[str] = None,
-    transition_matrix: Optional[pd.DataFrame] = None,
-) -> None:
+def save_all_visualizations(fixations: pd.DataFrame, metrics: pd.DataFrame,
+                           output_dir: str, subject: Optional[str] = None,
+                           stimulus: Optional[str] = None,
+                           screen_size: Tuple[int, int] = (1920, 1080),
+                           image_size: Optional[Tuple[int, int]] = None,
+                           background_image: Optional[str] = None,
+                           transition_matrix: Optional[pd.DataFrame] = None) -> None:
     """
     Generate and save all visualizations for a dataset.
     
@@ -386,7 +403,8 @@ def save_all_visualizations(
     screen_size : Tuple[int, int], optional
         Screen dimensions (width, height), by default (1920, 1080)
     image_size : Optional[Tuple[int, int]], optional
-        Original stimulus size for coordinate correction.
+        Stimulus image dimensions (width, height). If provided the data is
+        centered within the screen dimensions, by default None
     background_image : Optional[str], optional
         Path to background image, by default None
     transition_matrix : Optional[pd.DataFrame], optional
