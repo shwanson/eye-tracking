@@ -504,11 +504,17 @@ class MainWindow(QMainWindow):
             
             # Update timeseries plot
             fig = plot_gaze_timeseries(raw_data)
-            self.timeseries_tab.set_figure(fig)
+            if hasattr(self.timeseries_tab, "set_figure"):
+                self.timeseries_tab.set_figure(fig)
+            else:
+                print("Warning: timeseries_tab missing set_figure")
             
             # Update heatmap plot
             fig = plot_heatmap(raw_data)
-            self.heatmap_tab.set_figure(fig)
+            if hasattr(self.heatmap_tab, "set_figure"):
+                self.heatmap_tab.set_figure(fig)
+            else:
+                print("Warning: heatmap_tab missing set_figure")
             
             # Update scanpath plot
             print('DEBUG: Fixations DataFrame shape:', fixations.shape)
@@ -521,10 +527,16 @@ class MainWindow(QMainWindow):
                 fig = Figure(figsize=(12, 8))
                 ax = fig.add_subplot(111)
                 ax.set_title('No Scanpath Data')
-                self.scanpath_tab.set_figure(fig)
+                if hasattr(self.scanpath_tab, "set_figure"):
+                    self.scanpath_tab.set_figure(fig)
+                else:
+                    print("Warning: scanpath_tab missing set_figure")
             else:
                 fig = plot_scanpath(fixations)
-                self.scanpath_tab.set_figure(fig)
+                if hasattr(self.scanpath_tab, "set_figure"):
+                    self.scanpath_tab.set_figure(fig)
+                else:
+                    print("Warning: scanpath_tab missing set_figure")
             
             # Update metrics plot
             self.update_metrics_plot()
