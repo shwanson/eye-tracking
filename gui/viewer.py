@@ -174,6 +174,10 @@ class MainWindow(QMainWindow):
         filter_layout.addWidget(self.subject_combo)
         filter_layout.addWidget(QLabel("Stimulus:"))
         filter_layout.addWidget(self.stimulus_combo)
+        self.parallel_check = QCheckBox("Parallel Load")
+        self.parallel_check.setChecked(False)
+        self.parallel_check.setToolTip("Enable parallel loading of files")
+        filter_layout.addWidget(self.parallel_check)
         filter_layout.addStretch(1)
         
 
@@ -353,7 +357,10 @@ class MainWindow(QMainWindow):
             # If files are in the same directory, use load_all
             if len(set(Path(f).parent for f in file_paths)) == 1:
                 data_dir = Path(file_paths[0]).parent
-                self.raw_data = load_all(data_dir, (screen_w, screen_h), parallel=True)
+                parallel = False
+                if hasattr(self, "parallel_check"):
+                    parallel = self.parallel_check.isChecked()
+                self.raw_data = load_all(data_dir, (screen_w, screen_h), parallel=parallel)
             else:
                 # Load files individually and concatenate
                 dfs = []
