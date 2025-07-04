@@ -65,6 +65,9 @@ Run the analysis pipeline to calculate metrics and generate visualizations:
 
 ```bash
 python -m analysis.run --fixations fixations.parquet --output-dir results
+# Optionally specify the stimulus image size if it differs from the screen
+python -m analysis.run --fixations fixations.parquet \
+    --output-dir results --image-width 1024 --image-height 768
 ```
 
 ## Key Features
@@ -100,7 +103,9 @@ usage: python -m analysis.run [-h] --fixations FIXATIONS
                              [--group-var GROUP_VAR]
                              [--no-visualizations]
                              [--screen-width SCREEN_WIDTH]
-                             [--screen-height SCREEN_HEIGHT] [-v]
+                             [--screen-height SCREEN_HEIGHT]
+                             [--image-width IMAGE_WIDTH]
+                             [--image-height IMAGE_HEIGHT] [-v]
 ```
 
 ## Examples

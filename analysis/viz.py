@@ -46,6 +46,7 @@ def plot_heatmap(
     bins: int = 200,
     sigma: int = 10,
     screen_size: Tuple[int, int] = (1920, 1080),
+    image_size: Optional[Tuple[int, int]] = None,
     cmap: str = 'viridis',
     alpha: float = 0.7,
     background_image: Optional[str] = None,
@@ -65,6 +66,10 @@ def plot_heatmap(
         Gaussian blur sigma, by default 10
     screen_size : Tuple[int, int], optional
         Screen dimensions (width, height), by default (1920, 1080)
+    image_size : Optional[Tuple[int, int]], optional
+        Stimulus image dimensions. If provided and different from
+        ``screen_size`` the gaze coordinates are transformed into the
+        image coordinate system.
     cmap : str, optional
         Colormap name, by default 'viridis'
     alpha : float, optional
@@ -81,9 +86,31 @@ def plot_heatmap(
         fig = plt.figure(figsize=(12, 8))
     
     screen_w, screen_h = screen_size
-    
+    img_w, img_h = image_size if image_size else screen_size
+    img_w, img_h = image_size if image_size else screen_size
+    img_w, img_h = image_size if image_size else screen_size
+
     # Filter for valid coordinates
     valid_data = df.dropna(subset=['x_px', 'y_px'])
+    x_col, y_col = 'x_px', 'y_px'
+    if image_size and image_size != screen_size:
+        scale = min(screen_w / img_w, screen_h / img_h)
+        scaled_w, scaled_h = img_w * scale, img_h * scale
+        offset_x, offset_y = (screen_w - scaled_w) / 2, (screen_h - scaled_h) / 2
+        valid_data = valid_data.assign(
+            x_img=(valid_data['x_px'] - offset_x) / scale,
+            y_img=(valid_data['y_px'] - offset_y) / scale,
+        )
+        valid_data = valid_data[
+            (valid_data['x_img'].between(0, img_w))
+            & (valid_data['y_img'].between(0, img_h))
+        ]
+        x_col, y_col = 'x_img', 'y_img'
+    else:
+        valid_data = valid_data[
+            (valid_data['x_px'].between(0, img_w))
+            & (valid_data['y_px'].between(0, img_h))
+        ]
     
     # Create heatmap
     ax = fig.add_subplot(111)
@@ -92,15 +119,15 @@ def plot_heatmap(
     if background_image:
         try:
             img = plt.imread(background_image)
-            ax.imshow(img, extent=[0, screen_w, screen_h, 0])
+            ax.imshow(img, extent=[0, img_w, img_h, 0])
         except Exception as e:
             print(f"Error loading background image: {e}")
     
     if not valid_data.empty:
         # Create 2D histogram
         hist, x_edges, y_edges = np.histogram2d(
-            valid_data['x_px'], valid_data['y_px'],
-            bins=bins, range=[[0, screen_w], [0, screen_h]]
+            valid_data[x_col], valid_data[y_col],
+            bins=bins, range=[[0, img_w], [0, img_h]]
         )
         
         # Apply Gaussian filter for smoothing
@@ -112,13 +139,15 @@ def plot_heatmap(
         
         # Plot heatmap
         im = ax.imshow(
-            heat.T, extent=[0, screen_w, screen_h, 0],
+            heat.T, extent=[0, img_w, img_h, 0],
             cmap=cmap, alpha=alpha
         )
         
         # Add colorbar
         plt.colorbar(im, ax=ax, label='Density')
-    
+
+    ax.set_xlim(0, img_w)
+    ax.set_ylim(img_h, 0)
     ax.set_xlabel('X (px)')
     ax.set_ylabel('Y (px)')
     ax.set_title('Gaze Heatmap')
@@ -126,10 +155,16 @@ def plot_heatmap(
     return fig
 
 
-def plot_group_heatmap(dfs: List[pd.DataFrame], labels: List[str], 
-                      fig: Optional[Figure] = None, bins: int = 200, 
-                      sigma: int = 10, screen_size: Tuple[int, int] = (1920, 1080),
-                      cmap: str = 'viridis') -> Figure:
+def plot_group_heatmap(
+    dfs: List[pd.DataFrame],
+    labels: List[str],
+    fig: Optional[Figure] = None,
+    bins: int = 200,
+    sigma: int = 10,
+    screen_size: Tuple[int, int] = (1920, 1080),
+    image_size: Optional[Tuple[int, int]] = None,
+    cmap: str = 'viridis'
+) -> Figure:
     """
     Plot heatmaps for multiple groups.
     
@@ -147,6 +182,9 @@ def plot_group_heatmap(dfs: List[pd.DataFrame], labels: List[str],
         Gaussian blur sigma, by default 10
     screen_size : Tuple[int, int], optional
         Screen dimensions (width, height), by default (1920, 1080)
+    image_size : Optional[Tuple[int, int]], optional
+        Stimulus image dimensions. If provided, coordinates are transformed
+        from screen to image space before binning.
     cmap : str, optional
         Colormap name, by default 'viridis'
     
@@ -170,12 +208,34 @@ def plot_group_heatmap(dfs: List[pd.DataFrame], labels: List[str],
     for i, df in enumerate(dfs):
         # Filter for valid coordinates
         valid_data = df.dropna(subset=['x_px', 'y_px'])
-        
+        x_col, y_col = 'x_px', 'y_px'
+        if image_size and image_size != screen_size:
+            scale = min(screen_w / img_w, screen_h / img_h)
+            scaled_w, scaled_h = img_w * scale, img_h * scale
+            offset_x, offset_y = (
+                (screen_w - scaled_w) / 2,
+                (screen_h - scaled_h) / 2,
+            )
+            valid_data = valid_data.assign(
+                x_img=(valid_data['x_px'] - offset_x) / scale,
+                y_img=(valid_data['y_px'] - offset_y) / scale,
+            )
+            valid_data = valid_data[
+                (valid_data['x_img'].between(0, img_w))
+                & (valid_data['y_img'].between(0, img_h))
+            ]
+            x_col, y_col = 'x_img', 'y_img'
+        else:
+            valid_data = valid_data[
+                (valid_data['x_px'].between(0, img_w))
+                & (valid_data['y_px'].between(0, img_h))
+            ]
+
         if not valid_data.empty:
             # Create 2D histogram
             hist, x_edges, y_edges = np.histogram2d(
-                valid_data['x_px'], valid_data['y_px'],
-                bins=bins, range=[[0, screen_w], [0, screen_h]]
+                valid_data[x_col], valid_data[y_col],
+                bins=bins, range=[[0, img_w], [0, img_h]]
             )
             
             # Apply Gaussian filter for smoothing
@@ -195,12 +255,14 @@ def plot_group_heatmap(dfs: List[pd.DataFrame], labels: List[str],
     
     # Plot each heatmap
     for i, (heat, label) in enumerate(zip(heatmaps, labels)):
-        ax = fig.add_subplot(n_rows, n_cols, i+1)
+        ax = fig.add_subplot(n_rows, n_cols, i + 1)
         im = ax.imshow(
-            heat.T, extent=[0, screen_w, screen_h, 0],
-            cmap=cmap
+            heat.T, extent=[0, img_w, img_h, 0],
+            cmap=cmap,
         )
         plt.colorbar(im, ax=ax, label='Density')
+        ax.set_xlim(0, img_w)
+        ax.set_ylim(img_h, 0)
         ax.set_title(label)
         ax.set_xlabel('X (px)')
         ax.set_ylabel('Y (px)')
@@ -210,10 +272,12 @@ def plot_group_heatmap(dfs: List[pd.DataFrame], labels: List[str],
         ax = fig.add_subplot(n_rows, n_cols, 3)
         diff = heatmaps[0] - heatmaps[1]
         im = ax.imshow(
-            diff.T, extent=[0, screen_w, screen_h, 0],
+            diff.T, extent=[0, img_w, img_h, 0],
             cmap='coolwarm'
         )
         plt.colorbar(im, ax=ax, label='Difference')
+        ax.set_xlim(0, img_w)
+        ax.set_ylim(img_h, 0)
         ax.set_title(f'Difference ({labels[0]} - {labels[1]})')
         ax.set_xlabel('X (px)')
         ax.set_ylabel('Y (px)')
@@ -222,10 +286,15 @@ def plot_group_heatmap(dfs: List[pd.DataFrame], labels: List[str],
     return fig
 
 
-def plot_scanpath(df: pd.DataFrame, fig: Optional[Figure] = None,
-                 screen_size: Tuple[int, int] = (1920, 1080),
-                 show_fixations: bool = True, min_duration_s: float = 0.1,
-                 background_image: Optional[str] = None) -> Figure:
+def plot_scanpath(
+    df: pd.DataFrame,
+    fig: Optional[Figure] = None,
+    screen_size: Tuple[int, int] = (1920, 1080),
+    image_size: Optional[Tuple[int, int]] = None,
+    show_fixations: bool = True,
+    min_duration_s: float = 0.1,
+    background_image: Optional[str] = None,
+) -> Figure:
     """
     Plot scanpath trajectory.
     
@@ -237,6 +306,9 @@ def plot_scanpath(df: pd.DataFrame, fig: Optional[Figure] = None,
         Matplotlib figure to plot on, by default None
     screen_size : Tuple[int, int], optional
         Screen dimensions (width, height), by default (1920, 1080)
+    image_size : Optional[Tuple[int, int]], optional
+        Stimulus image dimensions. If provided, coordinates are mapped from
+        screen to image space.
     show_fixations : bool, optional
         Whether to show fixations as circles, by default True
     min_duration_s : float, optional
@@ -260,16 +332,35 @@ def plot_scanpath(df: pd.DataFrame, fig: Optional[Figure] = None,
     if background_image:
         try:
             img = plt.imread(background_image)
-            ax.imshow(img, extent=[0, screen_w, screen_h, 0])
+            ax.imshow(img, extent=[0, img_w, img_h, 0])
         except Exception as e:
             print(f"Error loading background image: {e}")
     
     # Filter for valid coordinates
     valid_data = df.dropna(subset=['x_px', 'y_px'])
-    
+    x_col, y_col = 'x_px', 'y_px'
+    if image_size and image_size != screen_size:
+        scale = min(screen_w / img_w, screen_h / img_h)
+        scaled_w, scaled_h = img_w * scale, img_h * scale
+        offset_x, offset_y = (screen_w - scaled_w) / 2, (screen_h - scaled_h) / 2
+        valid_data = valid_data.assign(
+            x_img=(valid_data['x_px'] - offset_x) / scale,
+            y_img=(valid_data['y_px'] - offset_y) / scale,
+        )
+        valid_data = valid_data[
+            (valid_data['x_img'].between(0, img_w))
+            & (valid_data['y_img'].between(0, img_h))
+        ]
+        x_col, y_col = 'x_img', 'y_img'
+    else:
+        valid_data = valid_data[
+            (valid_data['x_px'].between(0, img_w)) &
+            (valid_data['y_px'].between(0, img_h))
+        ]
+
     if not valid_data.empty:
         # Plot raw gaze trajectory
-        ax.plot(valid_data['x_px'], valid_data['y_px'], '-', alpha=0.5, linewidth=1, color='blue')
+        ax.plot(valid_data[x_col], valid_data[y_col], '-', alpha=0.5, linewidth=1, color='blue')
         
         # Plot fixations if requested
         if show_fixations and 'duration_s' in valid_data.columns:
@@ -280,13 +371,13 @@ def plot_scanpath(df: pd.DataFrame, fig: Optional[Figure] = None,
                 sizes = fixations['duration_s'] * 100
                 
                 ax.scatter(
-                    fixations['x_px'], fixations['y_px'],
+                    fixations[x_col], fixations[y_col],
                     s=sizes, alpha=0.6, edgecolors='black', color='red'
                 )
     
     # Set plot limits and labels
-    ax.set_xlim(0, screen_w)
-    ax.set_ylim(screen_h, 0)  # Invert Y axis to match screen coordinates
+    ax.set_xlim(0, img_w)
+    ax.set_ylim(img_h, 0)  # Invert Y axis to match screen coordinates
     ax.set_xlabel('X (px)')
     ax.set_ylabel('Y (px)')
     ax.set_title('Scanpath Trajectory')
@@ -294,12 +385,17 @@ def plot_scanpath(df: pd.DataFrame, fig: Optional[Figure] = None,
     return fig
 
 
-def save_all_visualizations(fixations: pd.DataFrame, metrics: pd.DataFrame, 
-                           output_dir: str, subject: Optional[str] = None,
-                           stimulus: Optional[str] = None,
-                           screen_size: Tuple[int, int] = (1920, 1080),
-                           background_image: Optional[str] = None,
-                           transition_matrix: Optional[pd.DataFrame] = None) -> None:
+def save_all_visualizations(
+    fixations: pd.DataFrame,
+    metrics: pd.DataFrame,
+    output_dir: str,
+    subject: Optional[str] = None,
+    stimulus: Optional[str] = None,
+    screen_size: Tuple[int, int] = (1920, 1080),
+    image_size: Optional[Tuple[int, int]] = None,
+    background_image: Optional[str] = None,
+    transition_matrix: Optional[pd.DataFrame] = None,
+) -> None:
     """
     Generate and save all visualizations for a dataset.
     
@@ -317,6 +413,8 @@ def save_all_visualizations(fixations: pd.DataFrame, metrics: pd.DataFrame,
         Stimulus ID to filter by, by default None
     screen_size : Tuple[int, int], optional
         Screen dimensions (width, height), by default (1920, 1080)
+    image_size : Optional[Tuple[int, int]], optional
+        Stimulus image dimensions for transforming coordinates
     background_image : Optional[str], optional
         Path to background image, by default None
     transition_matrix : Optional[pd.DataFrame], optional
@@ -351,6 +449,7 @@ def save_all_visualizations(fixations: pd.DataFrame, metrics: pd.DataFrame,
         fig = plot_scanpath(
             filtered_fixations,
             screen_size=screen_size,
+            image_size=image_size,
             background_image=background_image,
         )
         fig.savefig(output_path / f"{prefix}scanpath.png", dpi=300, bbox_inches='tight')
@@ -361,6 +460,7 @@ def save_all_visualizations(fixations: pd.DataFrame, metrics: pd.DataFrame,
         fig = plot_heatmap(
             filtered_fixations,
             screen_size=screen_size,
+            image_size=image_size,
             background_image=background_image,
         )
         fig.savefig(output_path / f"{prefix}heatmap.png", dpi=300, bbox_inches='tight')
