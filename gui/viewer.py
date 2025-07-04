@@ -631,7 +631,7 @@ class MainWindow(QMainWindow):
 
             # Update heatmap plot
             fig = plot_heatmap(raw_data, background_image=image_path)
-            self.heatmap_tab.set_figure(fig)
+            self.heatmap_plot.set_figure(fig)
    
 
             # Update scanpath plot
