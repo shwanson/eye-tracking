@@ -5,10 +5,7 @@ This module provides a command-line interface to run the ETL pipeline.
 """
 import argparse
 import logging
-from pathlib import Path
 from typing import Optional, Dict, Any
-
-import pandas as pd
 
 from etl.io import load_all, save_processed
 from etl.preprocess import preprocess_pipeline

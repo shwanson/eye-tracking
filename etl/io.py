@@ -3,7 +3,7 @@ Functions for loading and saving eye tracking data
 """
 from pathlib import Path
 import pandas as pd
-from typing import Tuple, List, Optional
+from typing import Tuple
 from multiprocessing import Pool
 import numpy as np
 

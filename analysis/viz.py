@@ -4,12 +4,9 @@ Visualization functions for eye tracking data.
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 from matplotlib.figure import Figure
-from matplotlib.axes import Axes
 from scipy.ndimage import gaussian_filter
-from typing import Dict, List, Union, Optional, Tuple, Any
-import seaborn as sns
+from typing import List, Optional, Tuple
 from pathlib import Path
 
 
