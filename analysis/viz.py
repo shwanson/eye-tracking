@@ -277,7 +277,54 @@ def plot_scanpath(df: pd.DataFrame, fig: Optional[Figure] = None,
     ax.set_xlabel('X (px)')
     ax.set_ylabel('Y (px)')
     ax.set_title('Scanpath Trajectory')
-    
+
+    return fig
+
+
+def plot_aoi_metrics(df: pd.DataFrame, metric: str, by_subject: bool = False,
+                     fig: Optional[Figure] = None) -> Figure:
+    """Bar plot for AOI metrics.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Metrics DataFrame containing the given ``metric`` column.
+    metric : str
+        Name of the metric column to plot.
+    by_subject : bool, optional
+        If ``True``, group by subject instead of stimulus.
+    fig : Optional[Figure], optional
+        Figure to draw on, by default ``None``.
+
+    Returns
+    -------
+    Figure
+        Matplotlib figure with the plot.
+    """
+    if fig is None:
+        fig = plt.figure(figsize=(8, 6))
+
+    x_col = "subject" if by_subject else "stimulus"
+
+    ax = fig.add_subplot(111)
+    sns.barplot(data=df, x=x_col, y=metric, ax=ax, ci="sd")
+    ax.set_xlabel(x_col.capitalize())
+    ax.set_ylabel(metric)
+    ax.set_title(f"{metric} by {x_col}")
+    fig.tight_layout()
+    return fig
+
+
+def plot_transition_matrix(mat: pd.DataFrame, fig: Optional[Figure] = None) -> Figure:
+    """Visualize a transition matrix as a heatmap."""
+    if fig is None:
+        fig = plt.figure(figsize=(6, 5))
+
+    ax = fig.add_subplot(111)
+    if not mat.empty:
+        sns.heatmap(mat, annot=True, fmt="g", cmap="Blues", ax=ax)
+    ax.set_title("Transition Matrix")
+    fig.tight_layout()
     return fig
 
 
