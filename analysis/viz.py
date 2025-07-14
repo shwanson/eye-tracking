@@ -143,7 +143,9 @@ def plot_heatmap(
     ax = fig.add_subplot(111)
 
     # Add background image if provided
-    ax.set_facecolor("black")
+    # Use a transparent background so letterboxes don't appear
+    fig.patch.set_alpha(0)
+    ax.set_facecolor("none")
     if background_image:
         try:
             img = plt.imread(background_image)
@@ -376,7 +378,9 @@ def plot_scanpath(
     ax = fig.add_subplot(111)
 
     # Add background image if provided
-    ax.set_facecolor("black")
+    # Use a transparent background so letterboxes don't appear
+    fig.patch.set_alpha(0)
+    ax.set_facecolor("none")
     if background_image:
         try:
             img = plt.imread(background_image)
