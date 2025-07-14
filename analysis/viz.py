@@ -112,43 +112,53 @@ def plot_heatmap(
         fig = plt.figure(figsize=(12, 8))
     
     screen_w, screen_h = screen_size
-    img_w, img_h = image_size if image_size else screen_size
-    offset_x = (screen_w - img_w) / 2 if image_size else 0
-    offset_y = (screen_h - img_h) / 2 if image_size else 0
+    # Determine original image size either from argument or from the file
+    if image_size:
+        img_w, img_h = image_size
+    elif background_image:
+        try:
+            img_tmp = plt.imread(background_image)
+            img_h, img_w = img_tmp.shape[:2]
+        except Exception:
+            img_w, img_h = screen_size
+    else:
+        img_w, img_h = screen_size
+
+    # Scale image to fill the screen height while preserving aspect ratio
+    scale = screen_h / img_h
+    disp_w = img_w * scale
+    offset_x = (screen_w - disp_w) / 2
     
     # Filter for valid coordinates
     valid_data = df.dropna(subset=['x_px', 'y_px'])
     if image_size:
         valid_data = valid_data.copy()
-        valid_data['x_px'] = valid_data['x_px'] - offset_x
-        valid_data['y_px'] = valid_data['y_px'] - offset_y
-        valid_data = valid_data[
-            (valid_data['x_px'] >= 0) & (valid_data['x_px'] <= img_w) &
-            (valid_data['y_px'] >= 0) & (valid_data['y_px'] <= img_h)
-        ]
+        mask = (
+            (valid_data['x_px'] >= offset_x) &
+            (valid_data['x_px'] <= offset_x + disp_w) &
+            (valid_data['y_px'] >= 0) & (valid_data['y_px'] <= screen_h)
+        )
+        valid_data = valid_data[mask]
     
     # Create heatmap
     ax = fig.add_subplot(111)
+    ax.set_facecolor('black')
 
     # Add background image if provided
     if background_image:
         try:
             img = plt.imread(background_image)
-            ax.imshow(img, extent=[0, img_w, img_h, 0])
+            ax.imshow(img, extent=[offset_x, offset_x + disp_w, screen_h, 0])
         except Exception as e:
             print(f"Error loading background image: {e}")
 
-    if image_size is not None:
-        valid_data = _to_image_coords(valid_data, screen_size, image_size)
-        x_col, y_col = 'x_img', 'y_img'
-    else:
-        x_col, y_col = 'x_px', 'y_px'
+    x_col, y_col = 'x_px', 'y_px'
     
     if not valid_data.empty:
         # Create 2D histogram
         hist, x_edges, y_edges = np.histogram2d(
             valid_data['x_px'], valid_data['y_px'],
-            bins=bins, range=[[0, img_w], [0, img_h]]
+            bins=bins, range=[[0, screen_w], [0, screen_h]]
         )
         
         # Apply Gaussian filter for smoothing
@@ -160,13 +170,15 @@ def plot_heatmap(
         
         # Plot heatmap
         im = ax.imshow(
-            heat.T, extent=[0, img_w, img_h, 0],
+            heat.T, extent=[0, screen_w, screen_h, 0],
             cmap=cmap, alpha=alpha
         )
-        
+
         # Add colorbar
         plt.colorbar(im, ax=ax, label='Density')
-    
+
+    ax.set_xlim(0, screen_w)
+    ax.set_ylim(screen_h, 0)
     ax.set_xlabel('X (px)')
     ax.set_ylabel('Y (px)')
     ax.set_title('Gaze Heatmap')
