@@ -19,7 +19,8 @@ def _to_image_coords(
     screen_w, screen_h = screen_size
     img_w, img_h = image_size
 
-    scale = min(screen_w / img_w, screen_h / img_h)
+    # Always scale the image to the screen height and letterbox horizontally
+    scale = screen_h / img_h
     disp_w = img_w * scale
     disp_h = img_h * scale
     margin_x = (screen_w - disp_w) / 2
@@ -112,43 +113,53 @@ def plot_heatmap(
         fig = plt.figure(figsize=(12, 8))
     
     screen_w, screen_h = screen_size
-    img_w, img_h = image_size if image_size else screen_size
-    offset_x = (screen_w - img_w) / 2 if image_size else 0
-    offset_y = (screen_h - img_h) / 2 if image_size else 0
+    if image_size:
+        img_w, img_h = image_size
+        scale = screen_h / img_h
+        disp_w = img_w * scale
+        disp_h = img_h * scale
+        offset_x = (screen_w - disp_w) / 2
+        offset_y = (screen_h - disp_h) / 2
+    else:
+        img_w, img_h = screen_size
+        disp_w, disp_h = screen_w, screen_h
+        offset_x = offset_y = 0
     
     # Filter for valid coordinates
     valid_data = df.dropna(subset=['x_px', 'y_px'])
+    valid_data = valid_data[
+        (valid_data['x_px'] >= 0)
+        & (valid_data['x_px'] <= screen_w)
+        & (valid_data['y_px'] >= 0)
+        & (valid_data['y_px'] <= screen_h)
+    ]
     if image_size:
-        valid_data = valid_data.copy()
-        valid_data['x_px'] = valid_data['x_px'] - offset_x
-        valid_data['y_px'] = valid_data['y_px'] - offset_y
         valid_data = valid_data[
-            (valid_data['x_px'] >= 0) & (valid_data['x_px'] <= img_w) &
-            (valid_data['y_px'] >= 0) & (valid_data['y_px'] <= img_h)
+            (valid_data['x_px'] >= offset_x)
+            & (valid_data['x_px'] <= offset_x + disp_w)
         ]
     
     # Create heatmap
     ax = fig.add_subplot(111)
 
     # Add background image if provided
+    ax.set_facecolor("black")
     if background_image:
         try:
             img = plt.imread(background_image)
-            ax.imshow(img, extent=[0, img_w, img_h, 0])
+            ax.imshow(img, extent=[offset_x, offset_x + disp_w, screen_h, 0])
         except Exception as e:
             print(f"Error loading background image: {e}")
 
+    # Convert to original image coordinates if needed for other uses
     if image_size is not None:
         valid_data = _to_image_coords(valid_data, screen_size, image_size)
-        x_col, y_col = 'x_img', 'y_img'
-    else:
-        x_col, y_col = 'x_px', 'y_px'
     
     if not valid_data.empty:
         # Create 2D histogram
         hist, x_edges, y_edges = np.histogram2d(
             valid_data['x_px'], valid_data['y_px'],
-            bins=bins, range=[[0, img_w], [0, img_h]]
+            bins=bins, range=[[0, screen_w], [0, screen_h]]
         )
         
         # Apply Gaussian filter for smoothing
@@ -160,16 +171,20 @@ def plot_heatmap(
         
         # Plot heatmap
         im = ax.imshow(
-            heat.T, extent=[0, img_w, img_h, 0],
-            cmap=cmap, alpha=alpha
+            heat.T,
+            extent=[0, screen_w, screen_h, 0],
+            cmap=cmap,
+            alpha=alpha,
         )
         
         # Add colorbar
         plt.colorbar(im, ax=ax, label='Density')
     
-    ax.set_xlabel('X (px)')
-    ax.set_ylabel('Y (px)')
-    ax.set_title('Gaze Heatmap')
+    ax.set_xlim(0, screen_w)
+    ax.set_ylim(screen_h, 0)
+    ax.set_xlabel("X (px)")
+    ax.set_ylabel("Y (px)")
+    ax.set_title("Gaze Heatmap")
     
     return fig
 
@@ -220,9 +235,17 @@ def plot_group_heatmap(
         raise ValueError("Number of DataFrames must match number of labels")
     
     screen_w, screen_h = screen_size
-    img_w, img_h = image_size if image_size else screen_size
-    offset_x = (screen_w - img_w) / 2 if image_size else 0
-    offset_y = (screen_h - img_h) / 2 if image_size else 0
+    if image_size:
+        img_w, img_h = image_size
+        scale = screen_h / img_h
+        disp_w = img_w * scale
+        disp_h = img_h * scale
+        offset_x = (screen_w - disp_w) / 2
+        offset_y = (screen_h - disp_h) / 2
+    else:
+        img_w, img_h = screen_size
+        disp_w, disp_h = screen_w, screen_h
+        offset_x = offset_y = 0
 
     # Create heatmaps for each group
     heatmaps = []
@@ -230,20 +253,23 @@ def plot_group_heatmap(
     for i, df in enumerate(dfs):
         # Filter for valid coordinates
         valid_data = df.dropna(subset=['x_px', 'y_px'])
+        valid_data = valid_data[
+            (valid_data['x_px'] >= 0)
+            & (valid_data['x_px'] <= screen_w)
+            & (valid_data['y_px'] >= 0)
+            & (valid_data['y_px'] <= screen_h)
+        ]
         if image_size:
-            valid_data = valid_data.copy()
-            valid_data['x_px'] = valid_data['x_px'] - offset_x
-            valid_data['y_px'] = valid_data['y_px'] - offset_y
             valid_data = valid_data[
-                (valid_data['x_px'] >= 0) & (valid_data['x_px'] <= img_w) &
-                (valid_data['y_px'] >= 0) & (valid_data['y_px'] <= img_h)
+                (valid_data['x_px'] >= offset_x)
+                & (valid_data['x_px'] <= offset_x + disp_w)
             ]
         
         if not valid_data.empty:
             # Create 2D histogram
             hist, x_edges, y_edges = np.histogram2d(
                 valid_data['x_px'], valid_data['y_px'],
-                bins=bins, range=[[0, img_w], [0, img_h]]
+                bins=bins, range=[[0, screen_w], [0, screen_h]]
             )
             
             # Apply Gaussian filter for smoothing
@@ -263,28 +289,34 @@ def plot_group_heatmap(
     
     # Plot each heatmap
     for i, (heat, label) in enumerate(zip(heatmaps, labels)):
-        ax = fig.add_subplot(n_rows, n_cols, i+1)
+        ax = fig.add_subplot(n_rows, n_cols, i + 1)
         im = ax.imshow(
-            heat.T, extent=[0, img_w, img_h, 0],
-            cmap=cmap
+            heat.T,
+            extent=[0, screen_w, screen_h, 0],
+            cmap=cmap,
         )
-        plt.colorbar(im, ax=ax, label='Density')
+        plt.colorbar(im, ax=ax, label="Density")
+        ax.set_xlim(0, screen_w)
+        ax.set_ylim(screen_h, 0)
         ax.set_title(label)
-        ax.set_xlabel('X (px)')
-        ax.set_ylabel('Y (px)')
+        ax.set_xlabel("X (px)")
+        ax.set_ylabel("Y (px)")
     
     # Add difference map if there are exactly 2 groups
     if n_groups == 2:
         ax = fig.add_subplot(n_rows, n_cols, 3)
         diff = heatmaps[0] - heatmaps[1]
         im = ax.imshow(
-            diff.T, extent=[0, img_w, img_h, 0],
-            cmap='coolwarm'
+            diff.T,
+            extent=[0, screen_w, screen_h, 0],
+            cmap="coolwarm",
         )
-        plt.colorbar(im, ax=ax, label='Difference')
-        ax.set_title(f'Difference ({labels[0]} - {labels[1]})')
-        ax.set_xlabel('X (px)')
-        ax.set_ylabel('Y (px)')
+        plt.colorbar(im, ax=ax, label="Difference")
+        ax.set_xlim(0, screen_w)
+        ax.set_ylim(screen_h, 0)
+        ax.set_title(f"Difference ({labels[0]} - {labels[1]})")
+        ax.set_xlabel("X (px)")
+        ax.set_ylabel("Y (px)")
     
     fig.tight_layout()
     return fig
@@ -329,31 +361,46 @@ def plot_scanpath(
         fig = plt.figure(figsize=(12, 8))
     
     screen_w, screen_h = screen_size
-    
+    if image_size:
+        img_w, img_h = image_size
+        scale = screen_h / img_h
+        disp_w = img_w * scale
+        disp_h = img_h * scale
+        offset_x = (screen_w - disp_w) / 2
+        offset_y = (screen_h - disp_h) / 2
+    else:
+        img_w, img_h = screen_size
+        disp_w, disp_h = screen_w, screen_h
+        offset_x = offset_y = 0
+
     ax = fig.add_subplot(111)
-    
+
     # Add background image if provided
+    ax.set_facecolor("black")
     if background_image:
         try:
             img = plt.imread(background_image)
-            ax.imshow(img, extent=[0, img_w, img_h, 0])
+            ax.imshow(img, extent=[offset_x, offset_x + disp_w, screen_h, 0])
         except Exception as e:
             print(f"Error loading background image: {e}")
     
     # Filter for valid coordinates
     valid_data = df.dropna(subset=['x_px', 'y_px'])
+    valid_data = valid_data[
+        (valid_data['x_px'] >= 0)
+        & (valid_data['x_px'] <= screen_w)
+        & (valid_data['y_px'] >= 0)
+        & (valid_data['y_px'] <= screen_h)
+    ]
     if image_size:
-        valid_data = valid_data.copy()
-        valid_data['x_px'] = valid_data['x_px'] - offset_x
-        valid_data['y_px'] = valid_data['y_px'] - offset_y
         valid_data = valid_data[
-            (valid_data['x_px'] >= 0) & (valid_data['x_px'] <= img_w) &
-            (valid_data['y_px'] >= 0) & (valid_data['y_px'] <= img_h)
+            (valid_data['x_px'] >= offset_x)
+            & (valid_data['x_px'] <= offset_x + disp_w)
         ]
 
     if not valid_data.empty:
         # Plot raw gaze trajectory
-        ax.plot(valid_data[x_col], valid_data[y_col], '-', alpha=0.5, linewidth=1, color='blue')
+        ax.plot(valid_data['x_px'], valid_data['y_px'], '-', alpha=0.5, linewidth=1, color='blue')
         
         # Plot fixations if requested
         if show_fixations and 'duration_s' in valid_data.columns:
@@ -364,16 +411,16 @@ def plot_scanpath(
                 sizes = fixations['duration_s'] * 100
                 
                 ax.scatter(
-                    fixations[x_col], fixations[y_col],
+                    fixations['x_px'], fixations['y_px'],
                     s=sizes, alpha=0.6, edgecolors='black', color='red'
                 )
     
     # Set plot limits and labels
-    ax.set_xlim(0, img_w)
-    ax.set_ylim(img_h, 0)  # Invert Y axis to match screen coordinates
-    ax.set_xlabel('X (px)')
-    ax.set_ylabel('Y (px)')
-    ax.set_title('Scanpath Trajectory')
+    ax.set_xlim(0, screen_w)
+    ax.set_ylim(screen_h, 0)
+    ax.set_xlabel("X (px)")
+    ax.set_ylabel("Y (px)")
+    ax.set_title("Scanpath Trajectory")
     
     return fig
 
