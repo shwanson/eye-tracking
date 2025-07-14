@@ -690,9 +690,10 @@ class MainWindow(QMainWindow):
             if self.current_stimulus:
                 image_path = self.background_images.get(str(self.current_stimulus))
 
-            # Update heatmap plot
+            # Update heatmap plot using current sigma value
             fig = plot_heatmap(
                 raw_data,
+                sigma=self.heatmap_sigma_spin.value(),
                 screen_size=(self.screen_width, self.screen_height),
                 image_size=(self.image_width, self.image_height),
                 background_image=image_path,
