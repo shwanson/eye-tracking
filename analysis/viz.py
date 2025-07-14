@@ -101,7 +101,9 @@ def plot_heatmap(
             scale = screen_h / img_h
             disp_w = img_w * scale
             offset = (screen_w - disp_w) / 2
-            ax.set_facecolor('black')
+            # Use a transparent background so letterboxing blends with the
+            # surrounding figure rather than appearing as black bars
+            ax.set_facecolor('none')
             ax.imshow(
                 img,
                 extent=[offset, offset + disp_w, screen_h, 0],
@@ -281,7 +283,9 @@ def plot_scanpath(df: pd.DataFrame, fig: Optional[Figure] = None,
             scale = screen_h / img_h
             disp_w = img_w * scale
             offset = (screen_w - disp_w) / 2
-            ax.set_facecolor('black')
+            # Use a transparent background so letterboxing blends with the
+            # surrounding figure rather than appearing as black bars
+            ax.set_facecolor('none')
             ax.imshow(
                 img,
                 extent=[offset, offset + disp_w, screen_h, 0],
