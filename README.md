@@ -122,11 +122,11 @@ processed_data, fixations = preprocess_pipeline(df)
 from analysis.viz import plot_heatmap, plot_scanpath
 
 # Create a heatmap
-fig = plot_heatmap(fixations)
+fig = plot_heatmap(fixations, background_image="path/to/stimulus.png")
 fig.savefig("heatmap.png")
 
 # Create a scanpath
-fig = plot_scanpath(fixations)
+fig = plot_scanpath(fixations, background_image="path/to/stimulus.png")
 fig.savefig("scanpath.png")
 ```
 

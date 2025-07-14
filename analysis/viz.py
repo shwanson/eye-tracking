@@ -43,10 +43,16 @@ def plot_gaze_timeseries(df: pd.DataFrame, fig: Optional[Figure] = None) -> Figu
     return fig
 
 
-def plot_heatmap(df: pd.DataFrame, fig: Optional[Figure] = None, 
-                bins: int = 200, sigma: int = 10,
-                screen_size: Tuple[int, int] = (1920, 1080),
-                cmap: str = 'viridis', alpha: float = 0.7) -> Figure:
+def plot_heatmap(
+    df: pd.DataFrame,
+    fig: Optional[Figure] = None,
+    bins: int = 200,
+    sigma: int = 10,
+    screen_size: Tuple[int, int] = (1920, 1080),
+    cmap: str = 'viridis',
+    alpha: float = 0.7,
+    background_image: Optional[str] = None,
+) -> Figure:
     """
     Plot gaze heatmap.
     
@@ -66,6 +72,9 @@ def plot_heatmap(df: pd.DataFrame, fig: Optional[Figure] = None,
         Colormap name, by default 'viridis'
     alpha : float, optional
         Heatmap transparency, by default 0.7
+    background_image : Optional[str], optional
+        Path to a background image. The image is scaled to the
+        plot height and centered with black bars (letterboxing).
     
     Returns:
     --------
@@ -82,6 +91,19 @@ def plot_heatmap(df: pd.DataFrame, fig: Optional[Figure] = None,
     
     # Create heatmap
     ax = fig.add_subplot(111)
+    ax.set_facecolor("black")
+
+    # Draw background image with letterboxing if provided
+    if background_image:
+        try:
+            img = plt.imread(background_image)
+            img_h, img_w = img.shape[:2]
+            scale = screen_h / img_h
+            scaled_w = img_w * scale
+            offset_x = (screen_w - scaled_w) / 2
+            ax.imshow(img, extent=[offset_x, offset_x + scaled_w, screen_h, 0])
+        except Exception as e:
+            print(f"Error loading background image: {e}")
     
     if not valid_data.empty:
         # Create 2D histogram
@@ -229,7 +251,8 @@ def plot_scanpath(df: pd.DataFrame, fig: Optional[Figure] = None,
     min_duration_s : float, optional
         Minimum fixation duration to show, by default 0.1
     background_image : Optional[str], optional
-        Path to background image, by default None
+        Path to a background image. The image is scaled to the
+        plot height and centered with black bars (letterboxing).
     
     Returns:
     --------
@@ -243,11 +266,16 @@ def plot_scanpath(df: pd.DataFrame, fig: Optional[Figure] = None,
     
     ax = fig.add_subplot(111)
     
-    # Add background image if provided
+    # Add background image with letterboxing if provided
+    ax.set_facecolor("black")
     if background_image:
         try:
             img = plt.imread(background_image)
-            ax.imshow(img, extent=[0, screen_w, screen_h, 0])
+            img_h, img_w = img.shape[:2]
+            scale = screen_h / img_h
+            scaled_w = img_w * scale
+            offset_x = (screen_w - scaled_w) / 2
+            ax.imshow(img, extent=[offset_x, offset_x + scaled_w, screen_h, 0])
         except Exception as e:
             print(f"Error loading background image: {e}")
     
@@ -394,7 +422,8 @@ def save_all_visualizations(fixations: pd.DataFrame, metrics: pd.DataFrame,
     if not filtered_fixations.empty:
         fig = plot_heatmap(
             filtered_fixations,
-            screen_size=screen_size
+            screen_size=screen_size,
+            background_image=background_image,
         )
         fig.savefig(output_path / f"{prefix}heatmap.png", dpi=300, bbox_inches='tight')
         plt.close(fig)
