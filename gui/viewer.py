@@ -266,7 +266,11 @@ class MainWindow(QMainWindow):
         self.heatmap_sigma_spin = QSpinBox()
         self.heatmap_sigma_spin.setRange(1, 30)
         self.heatmap_sigma_spin.setValue(10)
-        self.heatmap_sigma_spin.valueChanged.connect(self.update_plots)
+        # valueChanged emits the new value which update_plots does not accept
+        # so we wrap the call in a lambda to ignore the parameter
+        self.heatmap_sigma_spin.valueChanged.connect(
+            lambda _value: self.update_plots()
+        )
         controls_layout.addWidget(self.heatmap_sigma_spin)
         controls_layout.addStretch(1)
         layout.addLayout(controls_layout)
