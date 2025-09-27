@@ -1,0 +1,2 @@
+# Data utilities (image processing, heatmaps)
+opencv-python

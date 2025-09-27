@@ -1,0 +1,46 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment/secret files
+.env
+.env.*
+
+# Large data outputs
+# Ignore generated heatmap overlays and other bulky directories
+/data/heatmap_overlays/
+/data/current_images/
+/data/split_csv/
+/data/archive/
+
+# Results and generated artifacts
+/results/
+*.parquet
+*.feather
+*.csv.tmp
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.log
+*.tmp
+*.temp
+.cache/
+.eggs/
+
+# Misc
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+.python-version
+.vscode/
+

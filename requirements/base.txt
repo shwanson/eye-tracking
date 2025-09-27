@@ -1,0 +1,10 @@
+# Core scientific stack
+pandas
+numpy
+scipy
+matplotlib
+seaborn
+statsmodels
+
+# For parquet IO used by etl/io.py and analysis/run.py
+pyarrow

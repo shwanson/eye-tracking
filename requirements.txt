@@ -1,0 +1,4 @@
+-r requirements/base.txt
+-r requirements/gui.txt
+-r requirements/capture.txt
+-r requirements/data.txt

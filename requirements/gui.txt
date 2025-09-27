@@ -1,0 +1,2 @@
+# GUI app (PySide6 + matplotlib backend)
+PySide6

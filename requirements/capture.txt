@@ -1,0 +1,5 @@
+# Experiment capture requirements
+pygame
+
+# Optional proprietary SDK
+tobii-research
